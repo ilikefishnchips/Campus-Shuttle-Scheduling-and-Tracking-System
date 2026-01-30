@@ -1,0 +1,336 @@
+/* Admin Dashboard Container Styles */
+.admin-dashboard {
+    padding: 24px;
+}
+
+.admin-container {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.admin-container h2 {
+    color: #1f2937;
+    font-size: 1.8rem;
+    margin-bottom: 24px;
+}
+
+.admin-dashboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Admin Dashboard Navbar Styles */
+
+.navbar {
+    background: #ffffff;
+    border-bottom: 2px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 1000;
+}
+
+.navbar-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 100px;
+    height: 100px;
+    max-width: 100%;
+}
+
+/* Logo Section */
+.navbar-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #1f2937;
+    text-decoration: none;
+}
+
+.navbar-logo .logo-icon {
+    width: 300px;
+    height: 50px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+/* Menu Links */
+.navbar-menu {
+    display: flex;
+    list-style: none;
+    gap: 32px;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    margin-left: 40px;
+}
+
+.nav-link {
+    color: #6b7280;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    padding: 8px 0;
+    border-bottom: 2px solid transparent;
+    display: inline-block;
+}
+
+.nav-link:hover {
+    color: #1f2937;
+    border-bottom-color: #9ca3af;
+}
+
+.nav-link.active {
+    color: #000000;
+    border-bottom-color: #6b7280;
+}
+
+/* Right Section */
+.navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* Notification Button */
+.notification-btn {
+    position: relative;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    transition: transform 0.3s ease;
+}
+
+.notification-btn:hover {
+    transform: scale(1.1);
+}
+
+.notification-icon {
+    display: block;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* Admin Profile Section */
+.admin-profile {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: background 0.3s ease;
+}
+
+.admin-profile:hover {
+    background: #f3f4f6;
+}
+
+.profile-pic {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #d1d5db;
+}
+
+.admin-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1f2937;
+}
+
+/* Profile Dropdown Menu */
+.profile-menu {
+    position: absolute;
+    top: calc(100% + 1px);
+    right: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    min-width: 160px;
+    display: none;
+    flex-direction: column;
+}
+
+.admin-profile:hover .profile-menu {
+    display: flex;
+}
+
+.profile-menu a {
+    padding: 12px 16px;
+    color: #6b7280;
+    text-decoration: none;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.profile-menu a:last-child {
+    border-bottom: none;
+}
+
+.profile-menu a:hover {
+    background: #f9fafb;
+    color: #1f2937;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .navbar-container {
+        padding: 0 16px;
+        height: 60px;
+    }
+
+    .navbar-logo {
+        font-size: 1.1rem;
+    }
+
+    .navbar-logo .logo-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    .navbar-menu {
+        gap: 16px;
+        margin-left: 20px;
+        font-size: 12px;
+    }
+
+    .nav-link {
+        font-size: 12px;
+        padding: 4px 0;
+    }
+
+    .navbar-right {
+        gap: 12px;
+    }
+
+    .admin-name {
+        display: none;
+    }
+
+    .profile-pic {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+@media (max-width: 480px) {
+    .navbar-menu {
+        display: none;
+    }
+
+    .navbar-container {
+        padding: 0 12px;
+    }
+
+    .navbar-logo {
+        font-size: 0.9rem;
+    }
+}
+
+/* Main Content */
+main {
+    padding: 40px;
+    max-width: 120px;
+    margin: 0 auto;
+}
+
+main h1 {
+    color: #1f2937;
+    margin-bottom: 16px;
+}
+
+main h3 {
+    color: #6b7280;
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+}
+
+main p {
+    color: #9ca3af;
+    line-height: 1.6;
+}
+
+/* Chevron Icon Styling */
+.chevron-right {
+    font-size: 1.2em;
+    margin-left: 8px;
+    transition: transform 0.3s ease;
+}
+
+/* Button Styles */
+.manage-users-btn,
+.manage-roles-btn,
+.manage-vehicles-btn,
+.manage-routes-btn,
+.system-reports-btn {
+    background: #ffffff;
+    border: 2px solid #e5e7eb;
+    color: #1f2937;
+    padding: 16px 20px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+}
+.system-reports-btn:hover,
+.manage-users-btn:hover,
+.manage-roles-btn:hover,
+.manage-vehicles-btn:hover,
+.manage-routes-btn:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.system-reports-btn:active,
+.manage-users-btn:active,
+.manage-roles-btn:active,
+.manage-vehicles-btn:active,
+.manage-routes-btn:active {
+    transform: translateY(0);
+}
+.system-reports-btn:hover .chevron-right,
+.manage-users-btn:hover .chevron-right,
+.manage-roles-btn:hover .chevron-right,
+.manage-vehicles-btn:hover .chevron-right,
+.manage-routes-btn:hover .chevron-right {
+    transform: translateX(4px);
+}
