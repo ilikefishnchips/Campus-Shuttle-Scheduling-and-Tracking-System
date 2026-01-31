@@ -1,10 +1,21 @@
+<?php
+session_start();
+// Define base path
+define('BASE_URL', '/Campus-Shuttle-Scheduling-and-Tracking-System/');
+
+// Redirect if already logged in as admin
+if(isset($_SESSION['user_id']) && $_SESSION['role'] == 'Admin') {
+    header('Location: ' . BASE_URL . 'admin/dashboard.php');
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Login</title>
-    <link rel="stylesheet" href="../css/admin/style.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>css/admin/style.css">
     <style>
         .server-error {
             text-align: center;
@@ -44,19 +55,10 @@
     </style>
 </head>
 <body>
-    <?php
-    session_start();
-    // Redirect if already logged in as admin
-    if(isset($_SESSION['user_id']) && $_SESSION['role'] == 'Admin') {
-        header('Location: admin/dashboard.php');
-        exit();
-    }
-    ?>
-    
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <img src="../assets/mmuShuttleLogo2.png" alt="MMU Shuttle Logo" class="logo">
+                <img src="<?php echo BASE_URL; ?>assets/mmuShuttleLogo2.png" alt="MMU Shuttle Logo" class="logo">
                 <h2>Login as Admin</h2>
                 <div style="text-align: center; margin-top: 10px;">
                     <span class="admin-badge">SYSTEM ADMINISTRATOR</span>
@@ -69,7 +71,7 @@
                 </div>
             <?php endif; ?>
             
-            <form class="login-form" id="loginForm" action="../../php/login_process.php" method="POST" novalidate>
+            <form class="login-form" id="loginForm" action="<?php echo BASE_URL; ?>login_process.php" method="POST" novalidate>
                 <input type="hidden" name="role" value="Admin">
                 
                 <div class="form-group">
@@ -105,7 +107,7 @@
                 Password: <strong>password</strong>
             </div>
             
-            <a href="../../../Campus-Shuttle-Scheduling-and-Tracking-System/staff_selection.php" class="back-btn">← Back to Staff Selection</a>
+            <a href="<?php echo BASE_URL; ?>staff_selection.php" class="back-btn">← Back to Staff Selection</a>
 
             <div class="success-message" id="successMessage">
                 <div class="success-icon">✓</div>
@@ -115,9 +117,8 @@
         </div>
     </div>
 
-    <script src="../../shared/js/form-utils.js"></script>
+    <script src="<?php echo BASE_URL; ?>shared/js/form-utils.js"></script>
     <script>
-    // Update form action to traditional form submission
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('loginForm');
         const submitBtn = document.getElementById('submitBtn');
