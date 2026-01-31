@@ -35,8 +35,7 @@
         <div class="staff-options">
             <a href="driver_login.php" class="staff-btn driver-btn">Driver</a>
             <a href="coordinator_login.php" class="staff-btn coordinator-btn">Coordinator</a>
-            <a href="admin_login.php" class="staff-btn admin-btn">Admin</a>
-        </div>
+            <a href="campus-shuttle-admin-html/adminLoginPage.php" class="staff-btn admin-btn">Admin</a>        </div>
         
         <a href="role_selection.php" class="back-btn">← Back to Role Selection</a>
     </div>
