@@ -602,3 +602,132 @@ body {
         gap: 16px;
     }
 }
+
+/* Add these to your existing CSS file */
+
+/* Role selection styles */
+.role-wrapper {
+    position: relative;
+    margin-bottom: 24px;
+}
+
+.role-wrapper select {
+    width: 100%;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    padding: 16px 16px 8px 16px;
+    color: #000000;
+    font-size: 16px;
+    font-weight: 400;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+    backdrop-filter: blur(10px);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.role-wrapper label {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    color: #6b7280;
+    font-size: 16px;
+    font-weight: 400;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    transform-origin: left top;
+}
+
+.role-wrapper select:focus,
+.role-wrapper select.has-value {
+    border-color: #9ca3af;
+    background: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(107, 114, 128, 0.2);
+}
+
+.role-wrapper select:focus + label,
+.role-wrapper select.has-value + label {
+    transform: translateY(-8px) scale(0.85);
+    color: #6b7280;
+    font-weight: 500;
+    opacity: 0;
+}
+
+.role-wrapper .focus-border {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background: #d1d5db;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(-50%);
+    border-radius: 2px;
+}
+
+.role-wrapper select:focus ~ .focus-border {
+    width: 100%;
+}
+
+/* Error message for role */
+#roleError {
+    display: block;
+    color: #ef4444;
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 6px;
+    margin-left: 4px;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(239, 68, 68, 0.1);
+    padding: 4px 8px;
+    border-radius: 6px;
+    backdrop-filter: blur(10px);
+}
+
+#roleError.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* PHP error message */
+.php-error {
+    background: #ef4444;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
+    animation: slideIn 0.3s ease-out;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Success message should be hidden for PHP login */
+.success-message {
+    display: none !important;
+}
+
+/* Login header adjustments */
+.login-header p {
+    color: #6b7280;
+    font-size: 14px;
+    margin-bottom: 10px;
+    font-weight: 400;
+}
