@@ -244,7 +244,6 @@ $vehicle_count = $conn->query("SELECT COUNT(*) as count FROM vehicle")->fetch_as
                 </div>
             </div>
         </div>
-        
     </nav>
     
     <!-- Dashboard Content -->

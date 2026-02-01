@@ -353,6 +353,7 @@ $vehicles = $vehicles_result->fetch_all(MYSQLI_ASSOC);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../css/admin/style.css">
+    <link rel="stylesheet" href="../css/admin/dashboard.css">
     <style>
         .manage-users-container {
             padding: 30px;
@@ -632,12 +633,11 @@ $vehicles = $vehicles_result->fetch_all(MYSQLI_ASSOC);
         <div class="navbar-container">
             <div class="navbar-logo">
                 <img src="../assets/mmuShuttleLogo2.png" alt="Logo" class="logo-icon">
-                <span class="logo-text">Campus Shuttle Admin</span>
-            </div>
+            </div>            
             <div class="admin-profile">
                 <img src="../assets/mmuShuttleLogo2.png" alt="Admin" class="profile-pic">
                 <div class="user-badge">
-                    <?php echo htmlspecialchars($_SESSION['username']); ?>
+                    <?php echo $_SESSION['username']; ?> 
                 </div>
                 <div class="profile-menu">
                     <button class="logout-btn" onclick="window.location.href='../logout.php'">Logout</button>
