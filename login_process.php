@@ -73,7 +73,7 @@ function redirectToLogin($role, $error) {
             header('Location: coordinator_login.php?error=' . $error);
             break;
         case 'Admin':
-            header('Location: admin_login.php?error=' . $error);
+            header('Location: campus-shuttle-admin-html/adminLoginPage.php?error=' . $error);
             break;
         default:
             header('Location: index.php?error=' . $error);

@@ -4,7 +4,7 @@ require_once '../includes/config.php';
 
 // Check if user is logged in as Admin
 if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
-    header('Location: ../admin_login.php');
+    header('Location: ../campus-shuttle-admin-html/adminLoginPage.php');
     exit();
 }
 
@@ -27,6 +27,12 @@ $vehicle_count = $conn->query("SELECT COUNT(*) as count FROM vehicle")->fetch_as
 <html>
 <head>
     <title>Admin Dashboard</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Campus Shuttle</title>
+    <link rel="stylesheet" href="../css/admin/style.css">
+    <link rel="stylesheet" href="../css/admin/dashboard.css">
     <style>
         * {
             margin: 0;
@@ -37,22 +43,6 @@ $vehicle_count = $conn->query("SELECT COUNT(*) as count FROM vehicle")->fetch_as
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f5f5f5;
-        }
-        
-        .navbar {
-            background: #F44336;
-            color: white;
-            padding: 0 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 70px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
         }
         
         .user-info {
@@ -72,7 +62,7 @@ $vehicle_count = $conn->query("SELECT COUNT(*) as count FROM vehicle")->fetch_as
             background: white;
             color: #F44336;
             border: none;
-            padding: 8px 20px;
+            padding: 8px 10px;
             border-radius: 5px;
             cursor: pointer;
             font-weight: 600;
@@ -83,9 +73,9 @@ $vehicle_count = $conn->query("SELECT COUNT(*) as count FROM vehicle")->fetch_as
         }
         
         .dashboard-container {
-            padding: 30px;
+            padding: 30px ;
             max-width: 1200px;
-            margin: 0 auto;
+            margin: 80px auto;
         }
         
         .welcome-section {
@@ -234,18 +224,27 @@ $vehicle_count = $conn->query("SELECT COUNT(*) as count FROM vehicle")->fetch_as
                 gap: 10px;
             }
         }
+        
     </style>
 </head>
 <body>
     <!-- Navigation Bar -->
     <nav class="navbar">
-        <div class="logo">🚌 Campus Shuttle Admin</div>
-        <div class="user-info">
-            <div class="user-badge">
-                <?php echo $_SESSION['username']; ?> (Admin)
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <img src="../assets/mmuShuttleLogo2.png" alt="Logo" class="logo-icon">
+            </div>            
+            <div class="admin-profile">
+                <img src="../assets/mmuShuttleLogo2.png" alt="Admin" class="profile-pic">
+                <div class="user-badge">
+                    <?php echo $_SESSION['username']; ?> 
+                </div>
+                <div class="profile-menu">
+                    <button class="logout-btn" onclick="window.location.href='../logout.php'">Logout</button>
+                </div>
             </div>
-            <button class="logout-btn" onclick="window.location.href='../logout.php'">Logout</button>
         </div>
+        
     </nav>
     
     <!-- Dashboard Content -->
