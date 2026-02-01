@@ -132,7 +132,8 @@ if(isset($_SESSION['user_id']) && $_SESSION['role'] == 'Admin') {
             passwordToggle.addEventListener('click', function() {
                 const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
                 passwordInput.setAttribute('type', type);
-                this.classList.toggle('active');
+                const eyeIcon = this.querySelector('.eye-icon');
+                eyeIcon.classList.toggle('show-password');
             });
         }
         
