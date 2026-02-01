@@ -5,7 +5,7 @@ define('BASE_URL', '/Campus-Shuttle-Scheduling-and-Tracking-System/');
 
 // Redirect if already logged in as admin
 if(isset($_SESSION['user_id']) && $_SESSION['role'] == 'Admin') {
-    header('Location: ' . BASE_URL . 'admin/dashboard.php');
+    header('Location: ' . BASE_URL . 'campus-shuttle-admin-html/adminDashboard.php');
     exit();
 }
 ?>

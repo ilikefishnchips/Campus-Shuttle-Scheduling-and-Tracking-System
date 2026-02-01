@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             // Redirect based on role
             if ($_SESSION['role'] == 'Admin') {
-                header('Location: admin/dashboard.php');
+                header('Location: campus-shuttle-admin-html/adminDashboard.php');
             } elseif ($_SESSION['role'] == 'Student') {
                 header('Location: student/dashboard.php');
             } elseif ($_SESSION['role'] == 'Driver') {
