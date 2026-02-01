@@ -311,7 +311,7 @@ $vehicle_count = $conn->query("SELECT COUNT(*) as count FROM vehicle")->fetch_as
             <h3>Quick Access Links</h3>
             <div class="links-list">
                 <a href="manageUserPage.php" class="link-item">User Management</a>
-                <a href="#" class="link-item">Role Management</a>
+                <a href="manageRolesPage.php" class="link-item">Role Management</a>
                 <a href="#" class="link-item">Vehicle Management</a>
                 <a href="#" class="link-item">Route Management</a>
                 <a href="#" class="link-item">System Settings</a>
