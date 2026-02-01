@@ -293,11 +293,11 @@ $vehicle_count = $conn->query("SELECT COUNT(*) as count FROM vehicle")->fetch_as
                 <p>Create, edit, or delete user accounts for students, drivers, and coordinators.</p>
             </a>
             
-            <div class="action-card" onclick="alert('Vehicle Management - Coming Soon')">
+            <a href="manageVehiclePage.php" class="action-card" style="text-decoration: none; color: inherit;">
                 <div class="action-icon">🚌</div>
                 <h3>Manage Vehicles</h3>
                 <p>Add new shuttle vehicles, update capacity, or mark vehicles for maintenance.</p>
-            </div>
+            </a>
             
             <div class="action-card" onclick="alert('System Reports - Coming Soon')">
                 <div class="action-icon">📊</div>
@@ -312,12 +312,11 @@ $vehicle_count = $conn->query("SELECT COUNT(*) as count FROM vehicle")->fetch_as
             <div class="links-list">
                 <a href="manageUserPage.php" class="link-item">User Management</a>
                 <a href="manageRolesPage.php" class="link-item">Role Management</a>
-                <a href="#" class="link-item">Vehicle Management</a>
+                <a href="manageVehiclePage.php" class="link-item">Vehicle Management</a>
                 <a href="#" class="link-item">Route Management</a>
                 <a href="#" class="link-item">System Settings</a>
                 <a href="#" class="link-item">Audit Logs</a>
                 <a href="#" class="link-item">Backup Database</a>
-                <a href="#" class="link-item">System Health</a>
             </div>
         </div>
     </div>

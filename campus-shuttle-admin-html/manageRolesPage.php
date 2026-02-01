@@ -277,7 +277,7 @@ foreach ($users as $user) {
             transition: border-color 0.3s;
         }
         
-        .form-control:focus {
+        .form-control:focus {   
             outline: none;
             border-color: #F44336;
             box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.1);
