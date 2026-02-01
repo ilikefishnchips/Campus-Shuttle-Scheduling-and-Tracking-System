@@ -296,8 +296,7 @@ while ($row = $schedule_result->fetch_assoc()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../css/admin/style.css">
-        <link rel="stylesheet" href="../css/admin/dashboard.css">
-
+    <link rel="stylesheet" href="../css/admin/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .manage-routes-container {
@@ -584,6 +583,26 @@ while ($row = $schedule_result->fetch_assoc()) {
             color: #721c24;
         }
         
+        .status-inprogress {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-completed {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .status-cancelled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-delayed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
         .stops-container {
             margin-top: 20px;
             border: 1px solid #e9ecef;
@@ -746,7 +765,7 @@ while ($row = $schedule_result->fetch_assoc()) {
             padding: 25px;
             border-radius: 10px;
             width: 90%;
-            max-width: 700px;
+            max-width: 900px;
             max-height: 80vh;
             overflow-y: auto;
             position: relative;
@@ -779,6 +798,47 @@ while ($row = $schedule_result->fetch_assoc()) {
         
         .close-modal:hover {
             color: #333;
+        }
+        
+        /* Tab Styles */
+        .tabs-container {
+            margin-bottom: 20px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .tab-btn {
+            padding: 12px 24px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+            color: #666;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab-btn.active {
+            color: #4CAF50;
+            border-bottom-color: #4CAF50;
+        }
+        
+        .tab-btn:hover:not(.active) {
+            color: #333;
+            background: #f8f9fa;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+        
+        .tab-content.active {
+            display: block;
         }
         
         .stops-table {
@@ -877,6 +937,16 @@ while ($row = $schedule_result->fetch_assoc()) {
                 width: 95%;
                 margin: 10% auto;
                 padding: 20px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab-btn {
+                width: 100%;
+                text-align: left;
+                padding: 10px 15px;
             }
         }
     </style>
@@ -1116,8 +1186,8 @@ while ($row = $schedule_result->fetch_assoc()) {
                                                 </button>
                                             </form>
                                             
-                                            <button type="button" class="action-btn view-btn" onclick="viewRouteStops(<?php echo $route['Route_ID']; ?>)">
-                                                <i class="fas fa-eye"></i> View Stops
+                                            <button type="button" class="action-btn view-btn" onclick="viewRouteDetails(<?php echo $route['Route_ID']; ?>)">
+                                                <i class="fas fa-eye"></i> View Details
                                             </button>
                                             
                                             <?php if ($route['Status'] == 'Active'): ?>
@@ -1199,18 +1269,42 @@ while ($row = $schedule_result->fetch_assoc()) {
         </div>
     </div>
     
-    <!-- Modal for Viewing Route Stops -->
-    <div id="stopsModal" class="modal">
+    <!-- Modal for Viewing Route Details -->
+    <div id="detailsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title" id="modalRouteTitle">Route Stops</h3>
+                <h3 class="modal-title" id="modalRouteTitle">Route Details</h3>
                 <button type="button" class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            
+            <!-- Tabs Container -->
+            <div class="tabs-container">
+                <div class="tabs">
+                    <button id="tabStops" class="tab-btn active" onclick="switchTab('stops')">
+                        <i class="fas fa-map-marker-alt"></i> Stops
+                    </button>
+                    <button id="tabSchedules" class="tab-btn" onclick="switchTab('schedules')">
+                        <i class="fas fa-calendar-alt"></i> Schedules
+                    </button>
+                </div>
             </div>
             
             <div id="modalRouteSummary" class="route-summary"></div>
             
-            <div id="stopsContent">
-                <!-- Stops will be loaded here via AJAX -->
+            <!-- Stops Content -->
+            <div id="stopsContent" class="tab-content active">
+                <div class="no-data" style="padding: 40px;">
+                    <i class="fas fa-spinner fa-spin fa-2x" style="color: #4CAF50;"></i>
+                    <p style="margin-top: 15px;">Loading route stops...</p>
+                </div>
+            </div>
+            
+            <!-- Schedules Content -->
+            <div id="schedulesContent" class="tab-content">
+                <div class="no-data" style="padding: 40px;">
+                    <i class="fas fa-calendar-alt fa-2x" style="color: #6c757d;"></i>
+                    <p style="margin-top: 15px;">Select the Schedules tab to view route schedules</p>
+                </div>
             </div>
         </div>
     </div>
@@ -1270,7 +1364,7 @@ while ($row = $schedule_result->fetch_assoc()) {
         
         // Cancel edit mode
         function cancelEdit() {
-            window.location.href = 'manage_routes.php';
+            window.location.href = 'manageRoutePage.php';
         }
         
         // Confirm delete action
@@ -1283,17 +1377,25 @@ while ($row = $schedule_result->fetch_assoc()) {
             return confirm(`Are you sure you want to delete route "${routeName}" (ID: ${routeId})?\n\nThis action will also delete all associated stops and cannot be undone.`);
         }
         
-        // View route stops modal
-        function viewRouteStops(routeId) {
+        // Keep track of current route ID
+        let currentRouteId = null;
+        
+        // View route details modal
+        function viewRouteDetails(routeId) {
+            currentRouteId = routeId;
+            
             // Show loading state
             document.getElementById('stopsContent').innerHTML = `
                 <div style="text-align: center; padding: 40px;">
                     <i class="fas fa-spinner fa-spin fa-2x" style="color: #4CAF50;"></i>
-                    <p style="margin-top: 15px; color: #666;">Loading route stops...</p>
+                    <p style="margin-top: 15px; color: #666;">Loading route details...</p>
                 </div>
             `;
             
-            // Fetch route details and stops via AJAX
+            // Reset to stops tab
+            switchTab('stops');
+            
+            // Fetch route details via AJAX
             fetch(`get_route_stops.php?route_id=${routeId}`)
                 .then(response => response.json())
                 .then(data => {
@@ -1308,7 +1410,7 @@ while ($row = $schedule_result->fetch_assoc()) {
                     }
                     
                     // Update modal title
-                    document.getElementById('modalRouteTitle').textContent = `Stops for: ${data.route.Route_Name}`;
+                    document.getElementById('modalRouteTitle').textContent = `Route: ${data.route.Route_Name}`;
                     
                     // Update route summary
                     document.getElementById('modalRouteSummary').innerHTML = `
@@ -1360,7 +1462,8 @@ while ($row = $schedule_result->fetch_assoc()) {
                         `;
                         
                         data.stops.forEach((stop, index) => {
-                            const progressPercentage = (stop.Estimated_Time_From_Start / data.route.Estimated_Duration_Minutes * 100).toFixed(1);
+                            const progressPercentage = data.route.Estimated_Duration_Minutes > 0 ? 
+                                (stop.Estimated_Time_From_Start / data.route.Estimated_Duration_Minutes * 100).toFixed(1) : 0;
                             stopsHTML += `
                                 <tr>
                                     <td>
@@ -1401,14 +1504,162 @@ while ($row = $schedule_result->fetch_assoc()) {
                     }
                     
                     // Show modal
-                    document.getElementById('stopsModal').style.display = 'block';
+                    document.getElementById('detailsModal').style.display = 'block';
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     document.getElementById('stopsContent').innerHTML = `
                         <div style="text-align: center; padding: 40px; color: #dc3545;">
                             <i class="fas fa-exclamation-circle fa-2x"></i>
-                            <p style="margin-top: 15px;">Error loading route stops. Please try again.</p>
+                            <p style="margin-top: 15px;">Error loading route details. Please try again.</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Tab switching function
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tabName}Content`).classList.add('active');
+            
+            // If switching to schedules tab and route ID exists, load schedules
+            if (tabName === 'schedules' && currentRouteId) {
+                loadSchedules(currentRouteId);
+            }
+        }
+        
+        // Load schedules for selected route
+        function loadSchedules(routeId) {
+            if (!routeId) {
+                document.getElementById('schedulesContent').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #dc3545;">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        <p style="margin-top: 15px;">No route selected</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('schedulesContent').innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin fa-2x" style="color: #4CAF50;"></i>
+                    <p style="margin-top: 15px; color: #666;">Loading schedules...</p>
+                </div>
+            `;
+            
+            // Fetch schedules via AJAX
+            fetch(`get_route_schedule.php?route_id=${routeId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('schedulesContent').innerHTML = `
+                            <div style="text-align: center; padding: 40px; color: #dc3545;">
+                                <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                <p style="margin-top: 15px;">${data.error}</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    if (data.schedules.length === 0) {
+                        document.getElementById('schedulesContent').innerHTML = `
+                            <div style="text-align: center; padding: 40px; color: #6c757d;">
+                                <i class="fas fa-calendar-times fa-2x"></i>
+                                <p style="margin-top: 15px;">No schedules found for this route</p>
+                                <p style="font-size: 14px; margin-top: 10px;">Create schedules in the Schedule Management page</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    // Display schedules in a table
+                    let html = `
+                        <div class="table-container">
+                            <table class="stops-table">
+                                <thead>
+                                    <tr>
+                                        <th>Schedule ID</th>
+                                        <th>Date & Time</th>
+                                        <th>Vehicle</th>
+                                        <th>Driver</th>
+                                        <th>Status</th>
+                                        <th>Available Seats</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    data.schedules.forEach(schedule => {
+                        const departureTime = new Date(schedule.Departure_time);
+                        const expectedArrival = schedule.Expected_Arrival ? new Date(schedule.Expected_Arrival) : null;
+                        const formattedDate = departureTime.toLocaleDateString();
+                        const formattedTime = departureTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        const formattedArrival = expectedArrival ? expectedArrival.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A';
+                        
+                        // Determine status badge class
+                        let statusClass = '';
+                        switch(schedule.Status.toLowerCase()) {
+                            case 'scheduled': statusClass = 'status-active'; break;
+                            case 'in progress': statusClass = 'status-inprogress'; break;
+                            case 'completed': statusClass = 'status-completed'; break;
+                            case 'cancelled': statusClass = 'status-cancelled'; break;
+                            case 'delayed': statusClass = 'status-delayed'; break;
+                            default: statusClass = 'status-active';
+                        }
+                        
+                        html += `
+                            <tr>
+                                <td><strong>${schedule.Schedule_ID}</strong></td>
+                                <td>
+                                    <div><strong>${formattedDate}</strong></div>
+                                    <div><small>${formattedTime}</small></div>
+                                    ${expectedArrival ? `<div><small>Arrival: ${formattedArrival}</small></div>` : ''}
+                                </td>
+                                <td>
+                                    ${schedule.Plate_number || 'Not assigned'}<br>
+                                    <small style="color: #666;">${schedule.Model || ''}</small>
+                                </td>
+                                <td>${schedule.Driver_Name || 'Not assigned'}</td>
+                                <td>
+                                    <span class="status-badge ${statusClass}">
+                                        ${schedule.Status}
+                                    </span>
+                                </td>
+                                <td style="text-align: center;">
+                                    <span style="font-weight: bold; font-size: 16px;">${schedule.Available_Seats}</span>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div style="margin-top: 20px; text-align: center; font-size: 12px; color: #666;">
+                            <i class="fas fa-info-circle"></i> Showing ${data.schedules.length} schedule(s) for this route
+                        </div>
+                    `;
+                    
+                    document.getElementById('schedulesContent').innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('schedulesContent').innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #dc3545;">
+                            <i class="fas fa-exclamation-circle fa-2x"></i>
+                            <p style="margin-top: 15px;">Error loading schedules. Please try again.</p>
                         </div>
                     `;
                 });
@@ -1416,12 +1667,17 @@ while ($row = $schedule_result->fetch_assoc()) {
         
         // Close modal
         function closeModal() {
-            document.getElementById('stopsModal').style.display = 'none';
+            document.getElementById('detailsModal').style.display = 'none';
+            // Clear modal content
+            document.getElementById('modalRouteSummary').innerHTML = '';
+            document.getElementById('stopsContent').innerHTML = '';
+            document.getElementById('schedulesContent').innerHTML = '';
+            currentRouteId = null;
         }
         
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('stopsModal');
+            const modal = document.getElementById('detailsModal');
             if (event.target == modal) {
                 closeModal();
             }
