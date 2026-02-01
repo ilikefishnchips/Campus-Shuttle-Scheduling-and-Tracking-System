@@ -557,7 +557,7 @@ foreach ($users as $user) {
     <div class="user-list-container">
         <!-- Page Header -->
         <div class="page-header">
-            <h1 class="page-title">User Management</h1>
+            <h1 class="page-title">Role Management</h1>
             <button class="back-btn" onclick="window.location.href='adminDashboard.php'">← Back to Dashboard</button>
         </div>
         
