@@ -315,6 +315,8 @@ $vehicle_count = $conn->query("SELECT COUNT(*) as count FROM vehicle")->fetch_as
                 <a href="manageVehiclePage.php" class="link-item">Vehicle Management</a>
                 <a href="manageRoutePage.php" class="link-item">Route Management</a>
                 <a href="systemReport.php" class="link-item">System Report</a>
+                <a href="systemSettings.php" class="link-item">System Settings</a>
+                <a href="audit_logs.php" class="link-item">Audit Logs</a>
 
             </div>
         </div>
