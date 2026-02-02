@@ -22,27 +22,77 @@ $coordinator = $result->fetch_assoc();
 $message = '';
 $message_type = '';
 
+// Tab management
+$active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'routes';
+
+// Handle form submissions for routes
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['add_route'])) {
         // Add new route
         $route_name = trim($_POST['route_name']);
         $start_location = trim($_POST['start_location']);
         $end_location = trim($_POST['end_location']);
-        $total_stops = intval($_POST['total_stops']);
         $estimated_duration = intval($_POST['estimated_duration']);
         $status = $_POST['status'];
+        $stops = isset($_POST['stops']) ? $_POST['stops'] : [];
         
         if (!empty($route_name) && !empty($start_location) && !empty($end_location)) {
-            $sql = "INSERT INTO route (Route_Name, Start_Location, End_Location, Total_Stops, Estimated_Duration_Minutes, Status) 
-                    VALUES (?, ?, ?, ?, ?, ?)";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("sssiis", $route_name, $start_location, $end_location, $total_stops, $estimated_duration, $status);
+            // Begin transaction
+            $conn->begin_transaction();
             
-            if ($stmt->execute()) {
-                $message = "Route added successfully!";
+            try {
+                // Calculate total stops (start + intermediate + end)
+                $total_stops = count($stops) + 2; // +2 for start and end
+                
+                // Insert route
+                $sql = "INSERT INTO route (Route_Name, Start_Location, End_Location, Total_Stops, Estimated_Duration_Minutes, Status) 
+                        VALUES (?, ?, ?, ?, ?, ?)";
+                $stmt = $conn->prepare($sql);
+                $stmt->bind_param("sssiis", $route_name, $start_location, $end_location, $total_stops, $estimated_duration, $status);
+                
+                if (!$stmt->execute()) {
+                    throw new Exception("Error adding route: " . $conn->error);
+                }
+                
+                $route_id = $conn->insert_id;
+                
+                // Insert stops
+                if (!empty($stops) || !empty($start_location) || !empty($end_location)) {
+                    $stop_order = 1;
+                    $sql_stop = "INSERT INTO route_stops (Route_ID, Stop_Order, Stop_Name, Estimated_Time_From_Start) 
+                                 VALUES (?, ?, ?, ?)";
+                    $stmt_stop = $conn->prepare($sql_stop);
+                    
+                    // Insert start location (always first stop)
+                    $estimated_time = 0;
+                    $stmt_stop->bind_param("iisi", $route_id, $stop_order, $start_location, $estimated_time);
+                    $stmt_stop->execute();
+                    $stop_order++;
+                    
+                    // Insert intermediate stops
+                    foreach ($stops as $index => $stop_name) {
+                        if (!empty(trim($stop_name))) {
+                            // Calculate estimated time based on position
+                            $estimated_time = intval(($estimated_duration / ($total_stops - 1)) * $stop_order);
+                            $stmt_stop->bind_param("iisi", $route_id, $stop_order, $stop_name, $estimated_time);
+                            $stmt_stop->execute();
+                            $stop_order++;
+                        }
+                    }
+                    
+                    // Insert end location (always last stop)
+                    $estimated_time = $estimated_duration;
+                    $stmt_stop->bind_param("iisi", $route_id, $stop_order, $end_location, $estimated_time);
+                    $stmt_stop->execute();
+                }
+                
+                $conn->commit();
+                $message = "Route added successfully with " . $total_stops . " stops!";
                 $message_type = "success";
-            } else {
-                $message = "Error adding route: " . $conn->error;
+                
+            } catch (Exception $e) {
+                $conn->rollback();
+                $message = $e->getMessage();
                 $message_type = "error";
             }
         } else {
@@ -56,7 +106,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $route_name = trim($_POST['route_name']);
         $start_location = trim($_POST['start_location']);
         $end_location = trim($_POST['end_location']);
-        $total_stops = intval($_POST['total_stops']);
         $estimated_duration = intval($_POST['estimated_duration']);
         $status = $_POST['status'];
         
@@ -64,12 +113,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 Route_Name = ?, 
                 Start_Location = ?, 
                 End_Location = ?, 
-                Total_Stops = ?, 
                 Estimated_Duration_Minutes = ?, 
                 Status = ? 
                 WHERE Route_ID = ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sssiisi", $route_name, $start_location, $end_location, $total_stops, $estimated_duration, $status, $route_id);
+        $stmt->bind_param("sssisi", $route_name, $start_location, $end_location, $estimated_duration, $status, $route_id);
         
         if ($stmt->execute()) {
             $message = "Route updated successfully!";
@@ -96,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $message = "Cannot delete route with active schedules!";
             $message_type = "error";
         } else {
-            // Delete the route
+            // Delete the route (cascade will delete stops)
             $sql = "DELETE FROM route WHERE Route_ID = ?";
             $stmt = $conn->prepare($sql);
             $stmt->bind_param("i", $route_id);
@@ -110,11 +158,180 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
     }
+    elseif (isset($_POST['manage_stops'])) {
+        // Manage stops for a route
+        $route_id = intval($_POST['route_id']);
+        $stops = $_POST['stops'] ?? [];
+        
+        $conn->begin_transaction();
+        
+        try {
+            // Delete existing stops
+            $delete_sql = "DELETE FROM route_stops WHERE Route_ID = ?";
+            $delete_stmt = $conn->prepare($delete_sql);
+            $delete_stmt->bind_param("i", $route_id);
+            $delete_stmt->execute();
+            
+            // Insert new stops
+            $stop_order = 1;
+            $sql_stop = "INSERT INTO route_stops (Route_ID, Stop_Order, Stop_Name, Estimated_Time_From_Start) 
+                         VALUES (?, ?, ?, ?)";
+            $stmt_stop = $conn->prepare($sql_stop);
+            
+            // Process stops array
+            foreach ($stops as $stop) {
+                if (!empty(trim($stop['name']))) {
+                    $estimated_time = intval($stop['estimated_time']);
+                    $stmt_stop->bind_param("iisi", $route_id, $stop_order, $stop['name'], $estimated_time);
+                    $stmt_stop->execute();
+                    $stop_order++;
+                }
+            }
+            
+            // Update total stops count in route table
+            $total_stops = $stop_order - 1;
+            $update_sql = "UPDATE route SET Total_Stops = ? WHERE Route_ID = ?";
+            $update_stmt = $conn->prepare($update_sql);
+            $update_stmt->bind_param("ii", $total_stops, $route_id);
+            $update_stmt->execute();
+            
+            $conn->commit();
+            $message = "Route stops updated successfully!";
+            $message_type = "success";
+            
+        } catch (Exception $e) {
+            $conn->rollback();
+            $message = "Error updating stops: " . $e->getMessage();
+            $message_type = "error";
+        }
+    }
+    // Handle schedule form submissions
+    elseif (isset($_POST['add_schedule'])) {
+        $route_id = intval($_POST['route_id']);
+        $vehicle_id = intval($_POST['vehicle_id']);
+        $driver_id = intval($_POST['driver_id']);
+        $departure_time = $_POST['departure_time'];
+        $status = $_POST['schedule_status'];
+        
+        // Get route duration
+        $route_query = $conn->query("SELECT Estimated_Duration_Minutes FROM route WHERE Route_ID = $route_id");
+        $route_data = $route_query->fetch_assoc();
+        $duration = $route_data['Estimated_Duration_Minutes'];
+        
+        // Calculate expected arrival
+        $departure_datetime = new DateTime($departure_time);
+        $departure_datetime->modify("+{$duration} minutes");
+        $expected_arrival = $departure_datetime->format('Y-m-d H:i:s');
+        
+        // Get vehicle capacity
+        $vehicle_query = $conn->query("SELECT Capacity FROM vehicle WHERE Vehicle_ID = $vehicle_id");
+        $vehicle_data = $vehicle_query->fetch_assoc();
+        $capacity = $vehicle_data['Capacity'];
+        
+        $sql = "INSERT INTO shuttle_schedule (Route_ID, Vehicle_ID, Driver_ID, Departure_time, Expected_Arrival, Status, Available_Seats) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("iiisssi", $route_id, $vehicle_id, $driver_id, $departure_time, $expected_arrival, $status, $capacity);
+        
+        if ($stmt->execute()) {
+            $message = "Schedule added successfully!";
+            $message_type = "success";
+            $active_tab = 'schedules';
+        } else {
+            $message = "Error adding schedule: " . $conn->error;
+            $message_type = "error";
+        }
+    }
+    elseif (isset($_POST['edit_schedule'])) {
+        $schedule_id = intval($_POST['schedule_id']);
+        $route_id = intval($_POST['edit_route_id']);
+        $vehicle_id = intval($_POST['edit_vehicle_id']);
+        $driver_id = intval($_POST['edit_driver_id']);
+        $departure_time = $_POST['edit_departure_time'];
+        $status = $_POST['edit_schedule_status'];
+        
+        // Get route duration
+        $route_query = $conn->query("SELECT Estimated_Duration_Minutes FROM route WHERE Route_ID = $route_id");
+        $route_data = $route_query->fetch_assoc();
+        $duration = $route_data['Estimated_Duration_Minutes'];
+        
+        // Calculate expected arrival
+        $departure_datetime = new DateTime($departure_time);
+        $departure_datetime->modify("+{$duration} minutes");
+        $expected_arrival = $departure_datetime->format('Y-m-d H:i:s');
+        
+        $sql = "UPDATE shuttle_schedule SET 
+                Route_ID = ?, 
+                Vehicle_ID = ?, 
+                Driver_ID = ?, 
+                Departure_time = ?, 
+                Expected_Arrival = ?, 
+                Status = ? 
+                WHERE Schedule_ID = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("iiisssi", $route_id, $vehicle_id, $driver_id, $departure_time, $expected_arrival, $status, $schedule_id);
+        
+        if ($stmt->execute()) {
+            $message = "Schedule updated successfully!";
+            $message_type = "success";
+            $active_tab = 'schedules';
+        } else {
+            $message = "Error updating schedule: " . $conn->error;
+            $message_type = "error";
+        }
+    }
+    elseif (isset($_POST['delete_schedule'])) {
+        $schedule_id = intval($_POST['schedule_id']);
+        
+        // Check if schedule has reservations
+        $check_sql = "SELECT COUNT(*) as count FROM seat_reservation WHERE Schedule_ID = ? AND Status = 'Reserved'";
+        $check_stmt = $conn->prepare($check_sql);
+        $check_stmt->bind_param("i", $schedule_id);
+        $check_stmt->execute();
+        $check_result = $check_stmt->get_result();
+        $reservation_count = $check_result->fetch_assoc()['count'];
+        
+        if ($reservation_count > 0) {
+            $message = "Cannot delete schedule with active reservations!";
+            $message_type = "error";
+        } else {
+            $sql = "DELETE FROM shuttle_schedule WHERE Schedule_ID = ?";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("i", $schedule_id);
+            
+            if ($stmt->execute()) {
+                $message = "Schedule deleted successfully!";
+                $message_type = "success";
+                $active_tab = 'schedules';
+            } else {
+                $message = "Error deleting schedule: " . $conn->error;
+                $message_type = "error";
+            }
+        }
+    }
+    elseif (isset($_POST['update_schedule_status'])) {
+        $schedule_id = intval($_POST['schedule_id']);
+        $new_status = $_POST['new_status'];
+        
+        $sql = "UPDATE shuttle_schedule SET Status = ? WHERE Schedule_ID = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("si", $new_status, $schedule_id);
+        
+        if ($stmt->execute()) {
+            $message = "Schedule status updated successfully!";
+            $message_type = "success";
+            $active_tab = 'schedules';
+        } else {
+            $message = "Error updating schedule status: " . $conn->error;
+            $message_type = "error";
+        }
+    }
 }
 
-// Get all routes
+// Get all routes with stop counts
 $sql = "SELECT r.*,
-        (SELECT COUNT(*) FROM shuttle_schedule ss WHERE ss.Route_ID = r.Route_ID AND ss.Status IN ('Scheduled', 'In Progress')) as active_schedules
+        (SELECT COUNT(*) FROM shuttle_schedule ss WHERE ss.Route_ID = r.Route_ID AND ss.Status IN ('Scheduled', 'In Progress')) as active_schedules,
+        (SELECT COUNT(*) FROM route_stops rs WHERE rs.Route_ID = r.Route_ID) as stop_count
         FROM route r 
         ORDER BY r.Status, r.Route_Name";
 $routes_result = $conn->query($sql);
@@ -127,14 +344,53 @@ $route_stats = $conn->query("
         SUM(CASE WHEN Status = 'Active' THEN 1 ELSE 0 END) as active_routes,
         SUM(CASE WHEN Status = 'Inactive' THEN 1 ELSE 0 END) as inactive_routes,
         AVG(Estimated_Duration_Minutes) as avg_duration,
-        SUM(Total_Stops) as total_stops
+        SUM(Total_Stops) as total_stops,
+        (SELECT COUNT(*) FROM route_stops) as total_stop_records
     FROM route
 ")->fetch_assoc();
+
+// Get schedule statistics
+$schedule_stats = $conn->query("
+    SELECT 
+        COUNT(*) as total_schedules,
+        SUM(CASE WHEN Status = 'Scheduled' THEN 1 ELSE 0 END) as scheduled,
+        SUM(CASE WHEN Status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+        SUM(CASE WHEN Status = 'Completed' THEN 1 ELSE 0 END) as completed,
+        SUM(CASE WHEN Status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled
+    FROM shuttle_schedule
+    WHERE DATE(Departure_time) >= CURDATE() - INTERVAL 7 DAY
+")->fetch_assoc();
+
+// Get upcoming schedules (next 7 days)
+$upcoming_schedules = $conn->query("
+    SELECT ss.*, r.Route_Name, v.Plate_number, v.Capacity, u.Full_Name as driver_name,
+           (SELECT COUNT(*) FROM seat_reservation sr WHERE sr.Schedule_ID = ss.Schedule_ID AND sr.Status = 'Reserved') as reserved_seats
+    FROM shuttle_schedule ss
+    JOIN route r ON ss.Route_ID = r.Route_ID
+    JOIN vehicle v ON ss.Vehicle_ID = v.Vehicle_ID
+    JOIN user u ON ss.Driver_ID = u.User_ID
+    WHERE ss.Departure_time >= CURDATE()
+    ORDER BY ss.Departure_time
+    LIMIT 20
+")->fetch_all(MYSQLI_ASSOC);
+
+// Get available vehicles
+$vehicles = $conn->query("SELECT * FROM vehicle WHERE Status = 'Active'")->fetch_all(MYSQLI_ASSOC);
+
+// Get available drivers
+$drivers = $conn->query("
+    SELECT u.*, d.License_Number 
+    FROM user u 
+    JOIN user_roles ur ON u.User_ID = ur.User_ID 
+    JOIN roles r ON ur.Role_ID = r.Role_ID
+    LEFT JOIN driver_profile d ON u.User_ID = d.User_ID
+    WHERE r.Role_name = 'Driver'
+")->fetch_all(MYSQLI_ASSOC);
 ?>
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Manage Routes - Coordinator</title>
+    <title>Manage Routes & Schedules - Coordinator</title>
     <style>
         * {
             margin: 0;
@@ -214,7 +470,7 @@ $route_stats = $conn->query("
         
         .container {
             padding: 30px;
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
         }
         
@@ -234,6 +490,47 @@ $route_stats = $conn->query("
         .page-subtitle {
             color: #666;
             font-size: 16px;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 20px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab:hover {
+            background: #f8f9fa;
+            color: #333;
+        }
+        
+        .tab.active {
+            color: #9C27B0;
+            border-bottom: 3px solid #9C27B0;
+            background: #f8f9fa;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
         }
         
         .stats-grid {
@@ -275,11 +572,18 @@ $route_stats = $conn->query("
             margin-bottom: 30px;
         }
         
+        @media (max-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
         .section-card {
             background: white;
             padding: 25px;
             border-radius: 10px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
         }
         
         .section-title {
@@ -363,13 +667,34 @@ $route_stats = $conn->query("
             background: #388E3C;
         }
         
-        .routes-table {
+        .btn-warning {
+            background: #FF9800;
+        }
+        
+        .btn-warning:hover {
+            background: #F57C00;
+        }
+        
+        .btn-info {
+            background: #2196F3;
+        }
+        
+        .btn-info:hover {
+            background: #1976D2;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        
+        .routes-table, .schedules-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
         }
         
-        .routes-table th {
+        .routes-table th, .schedules-table th {
             background: #f8f9fa;
             padding: 15px;
             text-align: left;
@@ -378,12 +703,12 @@ $route_stats = $conn->query("
             border-bottom: 2px solid #e9ecef;
         }
         
-        .routes-table td {
+        .routes-table td, .schedules-table td {
             padding: 15px;
             border-bottom: 1px solid #e9ecef;
         }
         
-        .routes-table tr:hover {
+        .routes-table tr:hover, .schedules-table tr:hover {
             background: #f8f9fa;
         }
         
@@ -392,6 +717,7 @@ $route_stats = $conn->query("
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
+            display: inline-block;
         }
         
         .status-active {
@@ -404,9 +730,35 @@ $route_stats = $conn->query("
             color: white;
         }
         
+        .status-scheduled {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .status-in-progress {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .status-completed {
+            background: #9E9E9E;
+            color: white;
+        }
+        
+        .status-cancelled {
+            background: #F44336;
+            color: white;
+        }
+        
+        .status-delayed {
+            background: #FF9800;
+            color: white;
+        }
+        
         .action-buttons {
             display: flex;
             gap: 8px;
+            flex-wrap: wrap;
         }
         
         .action-btn {
@@ -442,29 +794,75 @@ $route_stats = $conn->query("
             font-size: 14px;
         }
         
-        .route-info-grid {
+        .stops-container {
+            margin-top: 15px;
+        }
+        
+        .stop-item {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .info-item {
-            background: white;
+            grid-template-columns: 40px 1fr 80px;
+            gap: 10px;
+            align-items: center;
             padding: 10px;
-            border-radius: 5px;
+            margin-bottom: 8px;
+            background: white;
             border: 1px solid #e9ecef;
+            border-radius: 5px;
         }
         
-        .info-label {
+        .stop-order {
+            background: #9C27B0;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .stop-type-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .stop-type-start {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .stop-type-end {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .stop-type-intermediate {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .stop-time {
             font-size: 12px;
             color: #666;
-            margin-bottom: 5px;
+            text-align: right;
         }
         
-        .info-value {
-            font-weight: 600;
-            color: #333;
+        .stop-form-group {
+            margin-bottom: 10px;
+        }
+        
+        .stop-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
         }
         
         .modal {
@@ -478,15 +876,17 @@ $route_stats = $conn->query("
             z-index: 1000;
             align-items: center;
             justify-content: center;
+            overflow-y: auto;
+            padding: 20px;
         }
         
         .modal-content {
             background: white;
             padding: 30px;
             border-radius: 10px;
-            width: 500px;
+            width: 800px;
             max-width: 90%;
-            max-height: 80vh;
+            max-height: 90vh;
             overflow-y: auto;
         }
         
@@ -511,18 +911,76 @@ $route_stats = $conn->query("
         
         .quick-actions {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 10px;
             margin-top: 20px;
+        }
+        
+        .stop-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .add-stop-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .remove-stop-btn {
+            background: #F44336;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            height: fit-content;
+        }
+        
+        .stop-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .seats-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+        
+        .seat-progress {
+            flex-grow: 1;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .seat-progress-bar {
+            height: 100%;
+            background: #4CAF50;
         }
         
         @media (max-width: 768px) {
             .container {
                 padding: 15px;
-            }
-            
-            .content-grid {
-                grid-template-columns: 1fr;
             }
             
             .navbar {
@@ -541,12 +999,25 @@ $route_stats = $conn->query("
                 grid-template-columns: 1fr 1fr;
             }
             
-            .route-info-grid {
+            .form-row {
                 grid-template-columns: 1fr;
             }
             
-            .quick-actions {
+            .stop-row {
                 grid-template-columns: 1fr;
+            }
+            
+            .stop-item {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .tabs {
+                flex-direction: column;
             }
         }
     </style>
@@ -574,31 +1045,8 @@ $route_stats = $conn->query("
     <div class="container">
         <!-- Page Header -->
         <div class="page-header">
-            <h1 class="page-title">🚏 Manage Bus Routes</h1>
-            <p class="page-subtitle">Create, edit, and manage campus shuttle routes</p>
-        </div>
-        
-        <!-- Statistics -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">Total Routes</div>
-                <div class="stat-number"><?php echo $route_stats['total_routes']; ?></div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-label">Active Routes</div>
-                <div class="stat-number"><?php echo $route_stats['active_routes']; ?></div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-label">Avg Duration</div>
-                <div class="stat-number"><?php echo round($route_stats['avg_duration']); ?> min</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-label">Total Stops</div>
-                <div class="stat-number"><?php echo $route_stats['total_stops']; ?></div>
-            </div>
+            <h1 class="page-title">🚏 Manage Routes & Schedules</h1>
+            <p class="page-subtitle">Create, edit, and manage campus shuttle routes and schedules</p>
         </div>
         
         <!-- Message Display -->
@@ -608,181 +1056,381 @@ $route_stats = $conn->query("
             </div>
         <?php endif; ?>
         
-        <!-- Main Content Grid -->
-        <div class="content-grid">
-            <!-- Left Column: Add/Edit Route Form -->
-            <div class="section-card">
-                <h2 class="section-title">Add New Route</h2>
-                <form method="POST" action="">
-                    <div class="form-group">
-                        <label class="form-label required">Route Name</label>
-                        <input type="text" name="route_name" class="form-control" 
-                               placeholder="e.g., Route A - Main Gate to Library" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label required">Start Location</label>
-                        <input type="text" name="start_location" class="form-control" 
-                               placeholder="e.g., Main Gate" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label required">End Location</label>
-                        <input type="text" name="end_location" class="form-control" 
-                               placeholder="e.g., Library" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Total Stops</label>
-                        <input type="number" name="total_stops" class="form-control" 
-                               min="2" max="20" value="3">
-                        <small style="color: #666;">Including start and end locations</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Estimated Duration (minutes)</label>
-                        <input type="number" name="estimated_duration" class="form-control" 
-                               min="5" max="180" value="15">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Status</label>
-                        <select name="status" class="form-control">
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <button type="submit" name="add_route" class="btn btn-success">
-                            🚀 Add New Route
-                        </button>
-                    </div>
-                </form>
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab <?php echo $active_tab == 'routes' ? 'active' : ''; ?>" onclick="switchTab('routes')">
+                🚏 Routes Management
+            </div>
+            <div class="tab <?php echo $active_tab == 'schedules' ? 'active' : ''; ?>" onclick="switchTab('schedules')">
+                📅 Schedule Management
+            </div>
+        </div>
+        
+        <!-- Routes Tab Content -->
+        <div id="routes-tab" class="tab-content <?php echo $active_tab == 'routes' ? 'active' : ''; ?>">
+            <!-- Route Statistics -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Routes</div>
+                    <div class="stat-number"><?php echo $route_stats['total_routes']; ?></div>
+                </div>
                 
-                <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                <div class="stat-card">
+                    <div class="stat-label">Active Routes</div>
+                    <div class="stat-number"><?php echo $route_stats['active_routes']; ?></div>
+                </div>
                 
-                <h2 class="section-title">Quick Actions</h2>
-                <div class="quick-actions">
-                    <button class="btn-secondary" onclick="openRouteMap()">
-                        🗺️ View Route Map
-                    </button>
-                    <button class="btn-secondary" onclick="generateReport()">
-                        📊 Generate Report
-                    </button>
-                    <button class="btn-secondary" onclick="importRoutes()">
-                        📥 Import Routes
-                    </button>
-                    <button class="btn-secondary" onclick="exportRoutes()">
-                        📤 Export Routes
-                    </button>
+                <div class="stat-card">
+                    <div class="stat-label">Total Stops</div>
+                    <div class="stat-number"><?php echo $route_stats['total_stop_records']; ?></div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">Avg Duration</div>
+                    <div class="stat-number"><?php echo round($route_stats['avg_duration']); ?> min</div>
                 </div>
             </div>
             
-            <!-- Right Column: Route List -->
-            <div class="section-card">
-                <h2 class="section-title">All Routes (<?php echo count($routes); ?>)</h2>
+            <!-- Main Content Grid -->
+            <div class="content-grid">
+                <!-- Left Column: Add/Edit Route Form -->
+                <div class="section-card">
+                    <h2 class="section-title">Add New Route</h2>
+                    <form method="POST" action="">
+                        <div class="form-group">
+                            <label class="form-label required">Route Name</label>
+                            <input type="text" name="route_name" class="form-control" 
+                                   placeholder="e.g., Route A - Main Gate to Library" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label required">Start Location</label>
+                            <input type="text" name="start_location" class="form-control" 
+                                   placeholder="e.g., Main Gate" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Intermediate Stops</label>
+                            <div id="stops-container">
+                                <!-- Stops will be added here dynamically -->
+                            </div>
+                            <button type="button" class="add-stop-btn" onclick="addStopField()">
+                                + Add Intermediate Stop
+                            </button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label required">End Location</label>
+                            <input type="text" name="end_location" class="form-control" 
+                                   placeholder="e.g., Library" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Estimated Duration (minutes)</label>
+                            <input type="number" name="estimated_duration" class="form-control" 
+                                   min="5" max="180" value="15" required>
+                            <small style="color: #666;">Total time from start to end location</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-control">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" name="add_route" class="btn btn-success">
+                                🚀 Add New Route
+                            </button>
+                        </div>
+                    </form>
+                </div>
                 
-                <?php if(count($routes) > 0): ?>
-                    <table class="routes-table">
-                        <thead>
-                            <tr>
-                                <th>Route Name</th>
-                                <th>Route</th>
-                                <th>Duration</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach($routes as $route): ?>
+                <!-- Right Column: Route List -->
+                <div class="section-card">
+                    <h2 class="section-title">All Routes (<?php echo count($routes); ?>)</h2>
+                    
+                    <?php if(count($routes) > 0): ?>
+                        <table class="routes-table">
+                            <thead>
                                 <tr>
-                                    <td>
-                                        <strong><?php echo $route['Route_Name']; ?></strong>
-                                        <?php if($route['active_schedules'] > 0): ?>
-                                            <br><small style="color: #666;"><?php echo $route['active_schedules']; ?> active schedule(s)</small>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <?php echo $route['Start_Location']; ?> → <?php echo $route['End_Location']; ?>
-                                        <br><small><?php echo $route['Total_Stops']; ?> stops</small>
-                                    </td>
-                                    <td><?php echo $route['Estimated_Duration_Minutes']; ?> min</td>
-                                    <td>
-                                        <span class="status-badge status-<?php echo strtolower($route['Status']); ?>">
-                                            <?php echo $route['Status']; ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div class="action-buttons">
-                                            <button class="action-btn btn-secondary" 
-                                                    onclick="editRoute(<?php echo $route['Route_ID']; ?>)">
-                                                ✏️ Edit
-                                            </button>
-                                            <button class="action-btn btn-danger" 
-                                                    onclick="deleteRoute(<?php echo $route['Route_ID']; ?>, '<?php echo addslashes($route['Route_Name']); ?>')">
-                                                🗑️ Delete
-                                            </button>
-                                            <button class="action-btn btn" 
-                                                    onclick="showDetails(<?php echo $route['Route_ID']; ?>)">
-                                                👁️ View
-                                            </button>
-                                        </div>
-                                    </td>
+                                    <th>Route Name</th>
+                                    <th>Route Path</th>
+                                    <th>Duration</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
-                                <!-- Hidden details row -->
-                                <tr id="details-<?php echo $route['Route_ID']; ?>" style="display: none;">
-                                    <td colspan="5">
-                                        <div class="route-details">
-                                            <div class="route-info-grid">
-                                                <div class="info-item">
-                                                    <div class="info-label">Route ID</div>
-                                                    <div class="info-value">#<?php echo $route['Route_ID']; ?></div>
-                                                </div>
-                                                <div class="info-item">
-                                                    <div class="info-label">Route Name</div>
-                                                    <div class="info-value"><?php echo $route['Route_Name']; ?></div>
-                                                </div>
-                                                <div class="info-item">
-                                                    <div class="info-label">Status</div>
-                                                    <div class="info-value">
-                                                        <span class="status-badge status-<?php echo strtolower($route['Status']); ?>">
-                                                            <?php echo $route['Status']; ?>
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div class="info-item">
-                                                    <div class="info-label">Start Location</div>
-                                                    <div class="info-value"><?php echo $route['Start_Location']; ?></div>
-                                                </div>
-                                                <div class="info-item">
-                                                    <div class="info-label">End Location</div>
-                                                    <div class="info-value"><?php echo $route['End_Location']; ?></div>
-                                                </div>
-                                                <div class="info-item">
-                                                    <div class="info-label">Total Stops</div>
-                                                    <div class="info-value"><?php echo $route['Total_Stops']; ?></div>
-                                                </div>
-                                                <div class="info-item">
-                                                    <div class="info-label">Duration</div>
-                                                    <div class="info-value"><?php echo $route['Estimated_Duration_Minutes']; ?> minutes</div>
+                            </thead>
+                            <tbody>
+                                <?php foreach($routes as $route): ?>
+                                    <tr>
+                                        <td>
+                                            <strong><?php echo $route['Route_Name']; ?></strong>
+                                            <?php if($route['active_schedules'] > 0): ?>
+                                                <br><small style="color: #666;"><?php echo $route['active_schedules']; ?> active schedule(s)</small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <div class="stop-info">
+                                                <span>📍 <?php echo $route['Start_Location']; ?></span>
+                                                <span>→</span>
+                                                <span>📍 <?php echo $route['End_Location']; ?></span>
+                                            </div>
+                                            <small style="color: #666;"><?php echo $route['stop_count']; ?> stops total</small>
+                                        </td>
+                                        <td><?php echo $route['Estimated_Duration_Minutes']; ?> min</td>
+                                        <td>
+                                            <span class="status-badge status-<?php echo strtolower($route['Status']); ?>">
+                                                <?php echo $route['Status']; ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="action-btn btn-warning" 
+                                                        onclick="manageStops(<?php echo $route['Route_ID']; ?>)">
+                                                    🚏 Manage Stops
+                                                </button>
+                                                <button class="action-btn btn-secondary" 
+                                                        onclick="editRoute(<?php echo $route['Route_ID']; ?>)">
+                                                    ✏️ Edit
+                                                </button>
+                                                <button class="action-btn btn-danger" 
+                                                        onclick="deleteRoute(<?php echo $route['Route_ID']; ?>, '<?php echo addslashes($route['Route_Name']); ?>')">
+                                                    🗑️ Delete
+                                                </button>
+                                                <button class="action-btn btn" 
+                                                        onclick="viewRouteDetails(<?php echo $route['Route_ID']; ?>)">
+                                                    👁️ Details
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php else: ?>
+                        <div class="no-data">
+                            <p>No routes found. Create your first route!</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Schedules Tab Content -->
+        <div id="schedules-tab" class="tab-content <?php echo $active_tab == 'schedules' ? 'active' : ''; ?>">
+            <!-- Schedule Statistics -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Schedules</div>
+                    <div class="stat-number"><?php echo $schedule_stats['total_schedules']; ?></div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">Scheduled</div>
+                    <div class="stat-number"><?php echo $schedule_stats['scheduled']; ?></div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">In Progress</div>
+                    <div class="stat-number"><?php echo $schedule_stats['in_progress']; ?></div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">Completed</div>
+                    <div class="stat-number"><?php echo $schedule_stats['completed']; ?></div>
+                </div>
+            </div>
+            
+            <!-- Main Content Grid -->
+            <div class="content-grid">
+                <!-- Left Column: Add/Edit Schedule Form -->
+                <div class="section-card">
+                    <h2 class="section-title">Add New Schedule</h2>
+                    <form method="POST" action="">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label required">Route</label>
+                                <select name="route_id" class="form-control" required>
+                                    <option value="">Select Route</option>
+                                    <?php 
+                                    $active_routes = $conn->query("SELECT * FROM route WHERE Status = 'Active'");
+                                    while($route = $active_routes->fetch_assoc()): ?>
+                                        <option value="<?php echo $route['Route_ID']; ?>">
+                                            <?php echo $route['Route_Name']; ?> (<?php echo $route['Estimated_Duration_Minutes']; ?> min)
+                                        </option>
+                                    <?php endwhile; ?>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label required">Vehicle</label>
+                                <select name="vehicle_id" class="form-control" required>
+                                    <option value="">Select Vehicle</option>
+                                    <?php foreach($vehicles as $vehicle): ?>
+                                        <option value="<?php echo $vehicle['Vehicle_ID']; ?>">
+                                            <?php echo $vehicle['Plate_number']; ?> (<?php echo $vehicle['Capacity']; ?> seats)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label required">Driver</label>
+                                <select name="driver_id" class="form-control" required>
+                                    <option value="">Select Driver</option>
+                                    <?php foreach($drivers as $driver): ?>
+                                        <option value="<?php echo $driver['User_ID']; ?>">
+                                            <?php echo $driver['Full_Name']; ?> (<?php echo $driver['License_Number']; ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label required">Departure Time</label>
+                                <input type="datetime-local" name="departure_time" class="form-control" 
+                                       value="<?php echo date('Y-m-d\TH:i'); ?>" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select name="schedule_status" class="form-control">
+                                <option value="Scheduled">Scheduled</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" name="add_schedule" class="btn btn-success">
+                                🚌 Add Schedule
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Right Column: Schedule List -->
+                <div class="section-card">
+                    <h2 class="section-title">Upcoming Schedules (<?php echo count($upcoming_schedules); ?>)</h2>
+                    
+                    <?php if(count($upcoming_schedules) > 0): ?>
+                        <table class="schedules-table">
+                            <thead>
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Route</th>
+                                    <th>Vehicle</th>
+                                    <th>Seats</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach($upcoming_schedules as $schedule): ?>
+                                    <?php
+                                    $available_seats = $schedule['Capacity'] - $schedule['reserved_seats'];
+                                    $seat_percentage = ($schedule['reserved_seats'] / $schedule['Capacity']) * 100;
+                                    ?>
+                                    <tr>
+                                        <td>
+                                            <strong><?php echo date('M d', strtotime($schedule['Departure_time'])); ?></strong><br>
+                                            <?php echo date('H:i', strtotime($schedule['Departure_time'])); ?>
+                                        </td>
+                                        <td>
+                                            <?php echo $schedule['Route_Name']; ?><br>
+                                            <small>Driver: <?php echo $schedule['driver_name']; ?></small>
+                                        </td>
+                                        <td><?php echo $schedule['Plate_number']; ?></td>
+                                        <td>
+                                            <div class="seats-info">
+                                                <span><?php echo $available_seats; ?>/<?php echo $schedule['Capacity']; ?></span>
+                                                <div class="seat-progress">
+                                                    <div class="seat-progress-bar" style="width: <?php echo $seat_percentage; ?>%"></div>
                                                 </div>
                                             </div>
-                                            <button onclick="hideDetails(<?php echo $route['Route_ID']; ?>)" 
-                                                    class="btn-secondary" style="margin-top: 10px;">
-                                                Hide Details
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php else: ?>
-                    <div class="no-data">
-                        <p>No routes found. Create your first route!</p>
+                                        </td>
+                                        <td>
+                                            <?php 
+                                            $status_class = '';
+                                            switch($schedule['Status']) {
+                                                case 'Scheduled': $status_class = 'status-scheduled'; break;
+                                                case 'In Progress': $status_class = 'status-in-progress'; break;
+                                                case 'Completed': $status_class = 'status-completed'; break;
+                                                case 'Cancelled': $status_class = 'status-cancelled'; break;
+                                                case 'Delayed': $status_class = 'status-delayed'; break;
+                                            }
+                                            ?>
+                                            <span class="status-badge <?php echo $status_class; ?>">
+                                                <?php echo $schedule['Status']; ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="action-buttons">
+                                                <button class="action-btn btn-info btn-sm" 
+                                                        onclick="editSchedule(<?php echo $schedule['Schedule_ID']; ?>)">
+                                                    ✏️ Edit
+                                                </button>
+                                                <button class="action-btn btn-warning btn-sm" 
+                                                        onclick="updateScheduleStatus(<?php echo $schedule['Schedule_ID']; ?>)">
+                                                    🔄 Status
+                                                </button>
+                                                <button class="action-btn btn-danger btn-sm" 
+                                                        onclick="deleteSchedule(<?php echo $schedule['Schedule_ID']; ?>, '<?php echo date('M d H:i', strtotime($schedule['Departure_time'])); ?>')">
+                                                    🗑️ Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php else: ?>
+                        <div class="no-data">
+                            <p>No upcoming schedules found. Create your first schedule!</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Manage Stops Modal -->
+    <div id="manageStopsModal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title" id="modalRouteName">Manage Stops</h2>
+            <form id="manageStopsForm" method="POST" action="">
+                <input type="hidden" name="route_id" id="manage_route_id">
+                
+                <div class="form-group">
+                    <label class="form-label">Route Stops (in order)</label>
+                    <div id="stops-list">
+                        <!-- Stops will be populated here -->
                     </div>
-                <?php endif; ?>
+                    <button type="button" class="add-stop-btn" onclick="addStopToModal()">
+                        + Add Stop
+                    </button>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeManageStopsModal()">Cancel</button>
+                    <button type="submit" name="manage_stops" class="btn">Save Stops</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- View Route Details Modal -->
+    <div id="viewDetailsModal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title">Route Details</h2>
+            <div id="routeDetailsContent">
+                <!-- Details will be populated here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeViewDetailsModal()">Close</button>
             </div>
         </div>
     </div>
@@ -810,12 +1458,6 @@ $route_stats = $conn->query("
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Total Stops</label>
-                    <input type="number" name="total_stops" id="edit_total_stops" class="form-control" 
-                           min="2" max="20">
-                </div>
-                
-                <div class="form-group">
                     <label class="form-label">Estimated Duration (minutes)</label>
                     <input type="number" name="estimated_duration" id="edit_estimated_duration" class="form-control" 
                            min="5" max="180">
@@ -830,14 +1472,111 @@ $route_stats = $conn->query("
                 </div>
                 
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="button" class="btn-secondary" onclick="closeEditModal()">Cancel</button>
                     <button type="submit" name="edit_route" class="btn">Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
     
-    <!-- Delete Confirmation Modal -->
+    <!-- Edit Schedule Modal -->
+    <div id="editScheduleModal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title">Edit Schedule</h2>
+            <form id="editScheduleForm" method="POST" action="">
+                <input type="hidden" name="schedule_id" id="edit_schedule_id">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label required">Route</label>
+                        <select name="edit_route_id" id="edit_schedule_route_id" class="form-control" required>
+                            <option value="">Select Route</option>
+                            <?php 
+                            $active_routes = $conn->query("SELECT * FROM route WHERE Status = 'Active'");
+                            while($route = $active_routes->fetch_assoc()): ?>
+                                <option value="<?php echo $route['Route_ID']; ?>">
+                                    <?php echo $route['Route_Name']; ?> (<?php echo $route['Estimated_Duration_Minutes']; ?> min)
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label required">Vehicle</label>
+                        <select name="edit_vehicle_id" id="edit_schedule_vehicle_id" class="form-control" required>
+                            <option value="">Select Vehicle</option>
+                            <?php foreach($vehicles as $vehicle): ?>
+                                <option value="<?php echo $vehicle['Vehicle_ID']; ?>">
+                                    <?php echo $vehicle['Plate_number']; ?> (<?php echo $vehicle['Capacity']; ?> seats)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label required">Driver</label>
+                        <select name="edit_driver_id" id="edit_schedule_driver_id" class="form-control" required>
+                            <option value="">Select Driver</option>
+                            <?php foreach($drivers as $driver): ?>
+                                <option value="<?php echo $driver['User_ID']; ?>">
+                                    <?php echo $driver['Full_Name']; ?> (<?php echo $driver['License_Number']; ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label required">Departure Time</label>
+                        <input type="datetime-local" name="edit_departure_time" id="edit_schedule_departure_time" class="form-control" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select name="edit_schedule_status" id="edit_schedule_status" class="form-control">
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="Cancelled">Cancelled</option>
+                        <option value="Delayed">Delayed</option>
+                        <option value="Completed">Completed</option>
+                        <option value="In Progress">In Progress</option>
+                    </select>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeEditScheduleModal()">Cancel</button>
+                    <button type="submit" name="edit_schedule" class="btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Update Schedule Status Modal -->
+    <div id="updateStatusModal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title">Update Schedule Status</h2>
+            <form id="updateStatusForm" method="POST" action="">
+                <input type="hidden" name="schedule_id" id="status_schedule_id">
+                
+                <div class="form-group">
+                    <label class="form-label required">New Status</label>
+                    <select name="new_status" id="new_status" class="form-control" required>
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Delayed">Delayed</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeUpdateStatusModal()">Cancel</button>
+                    <button type="submit" name="update_schedule_status" class="btn">Update Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modals -->
     <div id="deleteModal" class="modal">
         <div class="modal-content">
             <h2 class="modal-title">Delete Route</h2>
@@ -852,29 +1591,210 @@ $route_stats = $conn->query("
         </div>
     </div>
     
+    <div id="deleteScheduleModal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title">Delete Schedule</h2>
+            <p id="deleteScheduleMessage">Are you sure you want to delete this schedule?</p>
+            <form id="deleteScheduleForm" method="POST" action="">
+                <input type="hidden" name="schedule_id" id="delete_schedule_id">
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeDeleteScheduleModal()">Cancel</button>
+                    <button type="submit" name="delete_schedule" class="btn-danger">Delete Schedule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <script>
+        let stopCounter = 0;
+        
         function logout() {
             if(confirm('Are you sure you want to logout?')) {
                 window.location.href = '../logout.php';
             }
         }
         
-        function showDetails(routeId) {
-            const detailsRow = document.getElementById('details-' + routeId);
-            if (detailsRow) {
-                detailsRow.style.display = 'table-row';
-            }
+        function switchTab(tabName) {
+            // Update URL without reload
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabName);
+            window.history.pushState({}, '', url);
+            
+            // Update active tab
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
         }
         
-        function hideDetails(routeId) {
-            const detailsRow = document.getElementById('details-' + routeId);
-            if (detailsRow) {
-                detailsRow.style.display = 'none';
-            }
+        function addStopField() {
+            stopCounter++;
+            const container = document.getElementById('stops-container');
+            const stopDiv = document.createElement('div');
+            stopDiv.className = 'stop-input-group';
+            stopDiv.innerHTML = `
+                <input type="text" name="stops[]" class="form-control" placeholder="Intermediate Stop ${stopCounter}">
+                <button type="button" class="remove-stop-btn" onclick="this.parentElement.remove();">×</button>
+            `;
+            container.appendChild(stopDiv);
+        }
+        
+        function manageStops(routeId) {
+            fetch('get_route_stops.php?route_id=' + routeId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const route = data.route;
+                        const stops = data.stops;
+                        
+                        document.getElementById('manage_route_id').value = routeId;
+                        document.getElementById('modalRouteName').textContent = 'Manage Stops: ' + route.Route_Name;
+                        
+                        const stopsList = document.getElementById('stops-list');
+                        stopsList.innerHTML = '';
+                        
+                        // Add start location (first stop)
+                        if (route.Start_Location) {
+                            const startDiv = document.createElement('div');
+                            startDiv.className = 'stop-row';
+                            startDiv.innerHTML = `
+                                <input type="text" name="stops[0][name]" class="form-control" 
+                                       value="${route.Start_Location}" placeholder="Start location" readonly>
+                                <input type="number" name="stops[0][estimated_time]" class="form-control" 
+                                       value="0" placeholder="Minutes" min="0" readonly>
+                                <small style="grid-column: span 2; color: #4CAF50;">Start Location</small>
+                            `;
+                            stopsList.appendChild(startDiv);
+                        }
+                        
+                        // Add intermediate and end stops from route_stops table
+                        stops.forEach((stop, index) => {
+                            // Skip start location as it's already added
+                            if (stop.Stop_Name !== route.Start_Location) {
+                                const stopDiv = document.createElement('div');
+                                stopDiv.className = 'stop-row';
+                                stopDiv.innerHTML = `
+                                    <input type="text" name="stops[${index + 1}][name]" class="form-control" 
+                                           value="${stop.Stop_Name}" placeholder="Stop name" required>
+                                    <input type="number" name="stops[${index + 1}][estimated_time]" class="form-control" 
+                                           value="${stop.Estimated_Time_From_Start}" placeholder="Minutes" min="0" required>
+                                    <button type="button" class="remove-stop-btn" onclick="removeStopRow(this)">×</button>
+                                `;
+                                stopsList.appendChild(stopDiv);
+                            }
+                        });
+                        
+                        // Ensure end location exists
+                        if (route.End_Location && !stops.some(stop => stop.Stop_Name === route.End_Location)) {
+                            const endIndex = stops.length;
+                            const endDiv = document.createElement('div');
+                            endDiv.className = 'stop-row';
+                            endDiv.innerHTML = `
+                                <input type="text" name="stops[${endIndex}][name]" class="form-control" 
+                                       value="${route.End_Location}" placeholder="End location" required>
+                                <input type="number" name="stops[${endIndex}][estimated_time]" class="form-control" 
+                                       value="${route.Estimated_Duration_Minutes}" placeholder="Minutes" min="0" required>
+                                <small style="grid-column: span 2; color: #FF9800;">End Location</small>
+                            `;
+                            stopsList.appendChild(endDiv);
+                        }
+                        
+                        document.getElementById('manageStopsModal').style.display = 'flex';
+                    } else {
+                        alert('Error loading stops: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading stops');
+                });
+        }
+        
+        function addStopToModal() {
+            const stopsList = document.getElementById('stops-list');
+            const index = stopsList.children.length;
+            const stopDiv = document.createElement('div');
+            stopDiv.className = 'stop-row';
+            stopDiv.innerHTML = `
+                <input type="text" name="stops[${index}][name]" class="form-control" placeholder="Stop name" required>
+                <input type="number" name="stops[${index}][estimated_time]" class="form-control" 
+                       value="0" placeholder="Minutes" min="0" required>
+                <button type="button" class="remove-stop-btn" onclick="removeStopRow(this)">×</button>
+            `;
+            stopsList.appendChild(stopDiv);
+        }
+        
+        function removeStopRow(button) {
+            button.parentElement.remove();
+        }
+        
+        function viewRouteDetails(routeId) {
+            fetch('get_route_details.php?route_id=' + routeId + '&include_stops=true')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const route = data.route;
+                        const stops = data.stops || [];
+                        
+                        let stopsHtml = '<div class="stops-container">';
+                        
+                        // Sort stops by Estimated_Time_From_Start
+                        stops.sort((a, b) => a.Estimated_Time_From_Start - b.Estimated_Time_From_Start);
+                        
+                        stops.forEach((stop, index) => {
+                            // Determine stop type based on position
+                            let stopType = 'Intermediate';
+                            let stopTypeClass = 'stop-type-intermediate';
+                            
+                            if (index === 0) {
+                                stopType = 'Start';
+                                stopTypeClass = 'stop-type-start';
+                            } else if (index === stops.length - 1) {
+                                stopType = 'End';
+                                stopTypeClass = 'stop-type-end';
+                            }
+                            
+                            stopsHtml += `
+                                <div class="stop-item">
+                                    <div class="stop-order">${index + 1}</div>
+                                    <div>${stop.Stop_Name}</div>
+                                    <span class="stop-type-badge ${stopTypeClass}">${stopType}</span>
+                                    <div class="stop-time">${stop.Estimated_Time_From_Start} min</div>
+                                </div>
+                            `;
+                        });
+                        stopsHtml += '</div>';
+                        
+                        document.getElementById('routeDetailsContent').innerHTML = `
+                            <div style="margin-bottom: 20px;">
+                                <h3>${route.Route_Name}</h3>
+                                <p><strong>Status:</strong> <span class="status-badge status-${route.Status.toLowerCase()}">${route.Status}</span></p>
+                                <p><strong>Total Duration:</strong> ${route.Estimated_Duration_Minutes} minutes</p>
+                                <p><strong>Start Location:</strong> ${route.Start_Location}</p>
+                                <p><strong>End Location:</strong> ${route.End_Location}</p>
+                                <p><strong>Total Stops:</strong> ${route.Total_Stops}</p>
+                            </div>
+                            <h4>Route Path:</h4>
+                            ${stopsHtml}
+                        `;
+                        
+                        document.getElementById('viewDetailsModal').style.display = 'flex';
+                    } else {
+                        alert('Error loading route details');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading route details');
+                });
         }
         
         function editRoute(routeId) {
-            // Fetch route details via AJAX
             fetch('get_route_details.php?route_id=' + routeId)
                 .then(response => response.json())
                 .then(data => {
@@ -883,7 +1803,6 @@ $route_stats = $conn->query("
                         document.getElementById('edit_route_name').value = data.route.Route_Name;
                         document.getElementById('edit_start_location').value = data.route.Start_Location;
                         document.getElementById('edit_end_location').value = data.route.End_Location;
-                        document.getElementById('edit_total_stops').value = data.route.Total_Stops;
                         document.getElementById('edit_estimated_duration').value = data.route.Estimated_Duration_Minutes;
                         document.getElementById('edit_status').value = data.route.Status;
                         
@@ -898,6 +1817,35 @@ $route_stats = $conn->query("
                 });
         }
         
+        function editSchedule(scheduleId) {
+            fetch('get_schedule_details.php?schedule_id=' + scheduleId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const schedule = data.schedule;
+                        document.getElementById('edit_schedule_id').value = schedule.Schedule_ID;
+                        document.getElementById('edit_schedule_route_id').value = schedule.Route_ID;
+                        document.getElementById('edit_schedule_vehicle_id').value = schedule.Vehicle_ID;
+                        document.getElementById('edit_schedule_driver_id').value = schedule.Driver_ID;
+                        document.getElementById('edit_schedule_departure_time').value = schedule.Departure_time.replace(' ', 'T').substring(0, 16);
+                        document.getElementById('edit_schedule_status').value = schedule.Status;
+                        
+                        document.getElementById('editScheduleModal').style.display = 'flex';
+                    } else {
+                        alert('Error loading schedule details: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading schedule details');
+                });
+        }
+        
+        function updateScheduleStatus(scheduleId) {
+            document.getElementById('status_schedule_id').value = scheduleId;
+            document.getElementById('updateStatusModal').style.display = 'flex';
+        }
+        
         function deleteRoute(routeId, routeName) {
             document.getElementById('delete_route_id').value = routeId;
             document.getElementById('deleteMessage').innerHTML = 
@@ -906,50 +1854,70 @@ $route_stats = $conn->query("
             document.getElementById('deleteModal').style.display = 'flex';
         }
         
-        function closeModal() {
+        function deleteSchedule(scheduleId, scheduleTime) {
+            document.getElementById('delete_schedule_id').value = scheduleId;
+            document.getElementById('deleteScheduleMessage').innerHTML = 
+                `Are you sure you want to delete schedule <strong>"${scheduleTime}"</strong>?<br><br>
+                <small style="color: #666;">This action cannot be undone.</small>`;
+            document.getElementById('deleteScheduleModal').style.display = 'flex';
+        }
+        
+        function closeManageStopsModal() {
+            document.getElementById('manageStopsModal').style.display = 'none';
+        }
+        
+        function closeViewDetailsModal() {
+            document.getElementById('viewDetailsModal').style.display = 'none';
+        }
+        
+        function closeEditModal() {
             document.getElementById('editModal').style.display = 'none';
+        }
+        
+        function closeEditScheduleModal() {
+            document.getElementById('editScheduleModal').style.display = 'none';
+        }
+        
+        function closeUpdateStatusModal() {
+            document.getElementById('updateStatusModal').style.display = 'none';
         }
         
         function closeDeleteModal() {
             document.getElementById('deleteModal').style.display = 'none';
         }
         
-        function openRouteMap() {
-            window.open('route_map.php', '_blank');
-        }
-        
-        function generateReport() {
-            window.open('route_report.php', '_blank');
-        }
-        
-        function importRoutes() {
-            alert('Import functionality would open here');
-        }
-        
-        function exportRoutes() {
-            window.location.href = 'export_routes.php?format=csv';
+        function closeDeleteScheduleModal() {
+            document.getElementById('deleteScheduleModal').style.display = 'none';
         }
         
         // Close modals when clicking outside
         window.onclick = function(event) {
             if (event.target.className === 'modal') {
-                closeModal();
+                closeManageStopsModal();
+                closeViewDetailsModal();
+                closeEditModal();
+                closeEditScheduleModal();
+                closeUpdateStatusModal();
                 closeDeleteModal();
+                closeDeleteScheduleModal();
             }
         };
         
         // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                closeModal();
+                closeManageStopsModal();
+                closeViewDetailsModal();
+                closeEditModal();
+                closeEditScheduleModal();
+                closeUpdateStatusModal();
                 closeDeleteModal();
+                closeDeleteScheduleModal();
             }
         });
         
-        // Auto-refresh page every 2 minutes
-        setTimeout(function() {
-            window.location.reload();
-        }, 120000);
+        // Initialize with one intermediate stop field
+        addStopField();
     </script>
 </body>
 </html>

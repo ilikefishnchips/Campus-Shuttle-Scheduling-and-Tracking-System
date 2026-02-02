@@ -21,7 +21,7 @@ if(isset($_GET['route_id'])) {
     if($result->num_rows > 0) {
         $route = $result->fetch_assoc();
         
-        // Get route stops (including start and end)
+        // Get route stops
         $stops_sql = "SELECT * FROM route_stops WHERE Route_ID = ? ORDER BY Stop_Order";
         $stops_stmt = $conn->prepare($stops_sql);
         $stops_stmt->bind_param("i", $route_id);
