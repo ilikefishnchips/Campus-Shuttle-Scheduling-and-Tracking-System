@@ -37,14 +37,22 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
     text-decoration: none;
     font-weight: 500;
     font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .nav-actions a:hover {
     text-decoration: underline;
 }
 
-.nav-actions .bell {
+/* Icon-only links */
+.nav-icon {
     font-size: 18px;
+}
+
+.nav-icon:hover {
+    transform: scale(1.1);
 }
 </style>
 
@@ -55,10 +63,19 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
 
     <div class="nav-actions">
         <a href="dashboard.php">Dashboard</a>
-        <a href="book_shuttle.php">Book Shuttle</a>
-        <a href="my_bookings.php">My Bookings</a>
-        <a href="notifications.php" class="bell">🔔</a>
+        <a href="book_shuttle.php">🚌 Book Shuttle</a>
+        <a href="my_bookings.php">📋 My Bookings</a>
+
+        <!-- 🔔 Notifications -->
+        <a href="notifications.php" class="nav-icon" title="Notifications">
+            🔔
+        </a>
+
+        <!-- 🚨 Report Incident -->
+        <a href="report_incident.php" class="nav-icon" title="Report Incident">
+            🚨
+        </a>
+
         <a href="../logout.php">Logout</a>
     </div>
 </div>
-

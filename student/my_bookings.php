@@ -3,6 +3,11 @@ session_start();
 require_once '../includes/config.php';
 
 /* -----------------------------------------
+   TIMEZONE
+----------------------------------------- */
+date_default_timezone_set('Asia/Kuala_Lumpur');
+
+/* -----------------------------------------
    Access control
 ----------------------------------------- */
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
@@ -31,24 +36,27 @@ if (!$student) {
 $student_id = (int)$student['Student_ID'];
 
 /* -----------------------------------------
-   Get bookings (Route + Time)
+   Get bookings with REAL schedule datetime
 ----------------------------------------- */
 $stmt = $conn->prepare("
     SELECT 
         sr.Reservation_ID,
         sr.Seat_number,
-        sr.Status,
-        rt.Departure_Time,
+        sr.Status AS db_status,
+        ss.Departure_time,
+        ss.Expected_Arrival,
         r.Route_Name
     FROM seat_reservation sr
     JOIN route r ON sr.Route_ID = r.Route_ID
-    JOIN route_time rt ON sr.Time_ID = rt.Time_ID
+    JOIN shuttle_schedule ss ON sr.Schedule_ID = ss.Schedule_ID
     WHERE sr.Student_ID = ?
-    ORDER BY rt.Departure_Time DESC
+    ORDER BY ss.Departure_time DESC
 ");
 $stmt->bind_param("i", $student_id);
 $stmt->execute();
 $bookings = $stmt->get_result();
+
+$now = new DateTime('now', new DateTimeZone('Asia/Kuala_Lumpur'));
 ?>
 <!DOCTYPE html>
 <html>
@@ -56,7 +64,7 @@ $bookings = $stmt->get_result();
     <title>My Bookings</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             background: #f5f5f5;
             margin: 0;
         }
@@ -103,14 +111,25 @@ $bookings = $stmt->get_result();
         }
 
         .status-badge {
-            padding: 5px 12px;
+            padding: 6px 14px;
             border-radius: 20px;
             font-size: 13px;
             font-weight: 600;
+            display: inline-block;
         }
 
         .status-reserved {
             background: #4CAF50;
+            color: white;
+        }
+
+        .status-inprogress {
+            background: #FF9800;
+            color: white;
+        }
+
+        .status-completed {
+            background: #333;
             color: white;
         }
 
@@ -145,7 +164,6 @@ $bookings = $stmt->get_result();
 
 <?php include 'student_navbar.php'; ?>
 
-
 <div class="container">
     <div class="page-title">My Shuttle Reservations</div>
 
@@ -157,23 +175,45 @@ $bookings = $stmt->get_result();
         <table class="booking-table">
             <tr>
                 <th>Route</th>
+                <th>Date</th>
                 <th>Time</th>
                 <th>Seat</th>
                 <th>Status</th>
                 <th>Action</th>
             </tr>
+
             <?php while ($row = $bookings->fetch_assoc()): ?>
+                <?php
+                $departure = new DateTime($row['Departure_time']);
+                $arrival   = new DateTime($row['Expected_Arrival']);
+
+                if ($row['db_status'] === 'Cancelled') {
+                    $displayStatus = 'Cancelled';
+                    $statusClass = 'status-cancelled';
+                } elseif ($now < $departure) {
+                    $displayStatus = 'Reserved';
+                    $statusClass = 'status-reserved';
+                } elseif ($now >= $departure && $now <= $arrival) {
+                    $displayStatus = 'In Progress';
+                    $statusClass = 'status-inprogress';
+                } else {
+                    $displayStatus = 'Completed';
+                    $statusClass = 'status-completed';
+                }
+                ?>
+
                 <tr>
                     <td><?= htmlspecialchars($row['Route_Name']); ?></td>
-                    <td><?= date('H:i', strtotime($row['Departure_Time'])); ?></td>
-                    <td>#<?= $row['Seat_number']; ?></td>
+                    <td><?= $departure->format('Y-m-d'); ?></td>
+                    <td><?= $departure->format('H:i'); ?></td>
+                    <td>#<?= (int)$row['Seat_number']; ?></td>
                     <td>
-                        <span class="status-badge <?= $row['Status'] === 'Reserved' ? 'status-reserved' : 'status-cancelled'; ?>">
-                            <?= $row['Status']; ?>
+                        <span class="status-badge <?= $statusClass; ?>">
+                            <?= $displayStatus; ?>
                         </span>
                     </td>
                     <td>
-                        <?php if ($row['Status'] === 'Reserved'): ?>
+                        <?php if ($displayStatus === 'Reserved'): ?>
                             <form action="cancel_booking.php" method="POST" style="margin:0;">
                                 <input type="hidden" name="reservation_id" value="<?= (int)$row['Reservation_ID']; ?>">
                                 <button type="submit" class="cancel-btn"
@@ -186,6 +226,7 @@ $bookings = $stmt->get_result();
                         <?php endif; ?>
                     </td>
                 </tr>
+
             <?php endwhile; ?>
         </table>
     <?php else: ?>

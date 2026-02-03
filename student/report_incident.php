@@ -2,55 +2,79 @@
 session_start();
 require_once '../includes/config.php';
 
+/* ===============================
+   ACCESS CONTROL
+================================ */
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
     header('Location: ../student_login.php');
     exit();
 }
 
-$user_id = $_SESSION['user_id'];
+$user_id = (int)$_SESSION['user_id'];
 
-/* -----------------------------------------
-   Get student's booked shuttles
------------------------------------------ */
-$sql = "
-SELECT 
-    ss.Schedule_ID,
-    v.Vehicle_ID,
-    r.Route_Name,
-    ss.Departure_time
-FROM seat_reservation sr
-JOIN shuttle_schedule ss ON sr.Schedule_ID = ss.Schedule_ID
-JOIN route r ON ss.Route_ID = r.Route_ID
-JOIN vehicle v ON ss.Vehicle_ID = v.Vehicle_ID
-JOIN student_profile sp ON sr.Student_ID = sp.Student_ID
-WHERE sp.User_ID = ?
-AND sr.Status = 'Reserved'
-ORDER BY ss.Departure_time DESC
-";
-
-$stmt = $conn->prepare($sql);
+/* ===============================
+   GET STUDENT_ID
+================================ */
+$stmt = $conn->prepare("
+    SELECT Student_ID
+    FROM student_profile
+    WHERE User_ID = ?
+");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
-$bookings = $stmt->get_result();
+$student = $stmt->get_result()->fetch_assoc();
 
-/* -----------------------------------------
-   Handle form submission
------------------------------------------ */
+if (!$student) {
+    die("Student profile not found.");
+}
+
+$student_id = (int)$student['Student_ID'];
+
+/* ===============================
+   GET ACTIVE / UPCOMING TRIPS
+   (Reserved + In Progress only)
+================================ */
+$stmt = $conn->prepare("
+    SELECT
+        ss.Schedule_ID,
+        ss.Departure_time,
+        ss.Expected_Arrival,
+        ss.Status AS schedule_status,
+        r.Route_Name,
+        v.Vehicle_ID
+    FROM seat_reservation sr
+    JOIN shuttle_schedule ss ON sr.Schedule_ID = ss.Schedule_ID
+    JOIN route r ON ss.Route_ID = r.Route_ID
+    JOIN vehicle v ON ss.Vehicle_ID = v.Vehicle_ID
+    WHERE sr.Student_ID = ?
+      AND sr.Status = 'Reserved'
+      AND ss.Status IN ('Scheduled', 'In Progress')
+    ORDER BY ss.Departure_time DESC
+");
+$stmt->bind_param("i", $student_id);
+$stmt->execute();
+$trips = $stmt->get_result();
+
+/* ===============================
+   HANDLE INCIDENT SUBMISSION
+================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $schedule_id   = (int) $_POST['schedule_id'];
-    $vehicle_id    = (int) $_POST['vehicle_id'];
-    $incident_type = $_POST['incident_type'];
-    $description   = $_POST['description'];
-    $priority      = $_POST['priority'];
+    $schedule_id   = (int)$_POST['schedule_id'];
+    $vehicle_id    = (int)$_POST['vehicle_id'];
+    $incident_type = trim($_POST['incident_type']);
+    $description   = trim($_POST['description']);
+    $priority      = trim($_POST['priority']);
 
-    $sql = "
-    INSERT INTO incident_reports
-    (Reporter_ID, Schedule_ID, Vehicle_ID, Incident_Type, Description, Priority)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ";
+    if (!$schedule_id || !$vehicle_id || !$incident_type || !$description) {
+        die("Invalid incident submission.");
+    }
 
-    $stmt = $conn->prepare($sql);
+    $stmt = $conn->prepare("
+        INSERT INTO incident_reports
+        (Reporter_ID, Schedule_ID, Vehicle_ID, Incident_Type, Description, Priority, Reported_At)
+        VALUES (?, ?, ?, ?, ?, ?, NOW())
+    ");
     $stmt->bind_param(
         "iiisss",
         $user_id,
@@ -66,89 +90,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit();
 }
 ?>
+
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Report Incident</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma;
-            background:#f5f5f5;
-            margin:0;
-        }
-        .navbar {
-            background:#2196F3;
-            color:white;
-            height:70px;
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            padding:0 20px;
-        }
-        .container {
-            max-width:650px;
-            margin:30px auto;
-            padding:0 20px;
-        }
-        .card {
-            background:white;
-            padding:25px;
-            border-radius:10px;
-            box-shadow:0 5px 15px rgba(0,0,0,0.05);
-        }
-        select, textarea, button {
-            width:100%;
-            padding:12px;
-            margin-top:10px;
-            border-radius:6px;
-            border:1px solid #ccc;
-            font-size:14px;
-        }
-        button {
-            background:#2196F3;
-            color:white;
-            border:none;
-            margin-top:20px;
-            font-size:16px;
-            cursor:pointer;
-        }
-        .success {
-            background:#E8F5E9;
-            color:#2E7D32;
-            padding:15px;
-            border-radius:6px;
-            margin-bottom:15px;
-        }
-    </style>
+<title>Report Incident</title>
+<style>
+body {
+    font-family:'Segoe UI', sans-serif;
+    background:#f4f4f4;
+    margin:0;
+}
+.container {
+    max-width:650px;
+    margin:40px auto;
+    padding:0 20px;
+}
+.card {
+    background:white;
+    padding:30px;
+    border-radius:12px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.05);
+}
+h2 {
+    margin-bottom:20px;
+}
+label {
+    font-weight:600;
+    margin-top:15px;
+    display:block;
+}
+select, textarea, button {
+    width:100%;
+    padding:12px;
+    margin-top:8px;
+    border-radius:8px;
+    border:1px solid #ccc;
+    font-size:14px;
+}
+button {
+    background:#F44336;
+    color:white;
+    border:none;
+    font-size:16px;
+    margin-top:20px;
+    cursor:pointer;
+}
+button:hover {
+    background:#D32F2F;
+}
+.success {
+    background:#E8F5E9;
+    color:#2E7D32;
+    padding:15px;
+    border-radius:8px;
+    margin-bottom:20px;
+}
+.no-data {
+    text-align:center;
+    color:#777;
+    font-style:italic;
+    padding:30px;
+}
+.trip-status {
+    font-size:12px;
+    margin-left:6px;
+    padding:2px 8px;
+    border-radius:12px;
+}
+.status-scheduled { background:#4CAF50; color:white; }
+.status-progress { background:#FF9800; color:white; }
+</style>
 </head>
 <body>
 
-<div class="navbar">
-    <div>🚨 Report Incident</div>
-    <div>
-        <a href="dashboard.php" style="color:white;margin-right:20px;">Dashboard</a>
-        <a href="../logout.php" style="color:white;">Logout</a>
-    </div>
-</div>
+<?php include 'student_navbar.php'; ?>
 
 <div class="container">
+
+<h2>🚨 Report Shuttle Incident</h2>
 
 <?php if (isset($_GET['success'])): ?>
     <div class="success">✅ Incident reported successfully.</div>
 <?php endif; ?>
 
+<?php if ($trips->num_rows > 0): ?>
 <div class="card">
 <form method="POST">
 
     <label>Related Shuttle Trip</label>
-    <select name="schedule_id" required onchange="updateVehicle(this)">
+    <select name="schedule_id" required onchange="setVehicle(this)">
         <option value="">-- Select Shuttle --</option>
-        <?php while ($row = $bookings->fetch_assoc()): ?>
-            <option 
-                value="<?= $row['Schedule_ID']; ?>"
-                data-vehicle="<?= $row['Vehicle_ID']; ?>">
-                <?= htmlspecialchars($row['Route_Name']); ?>
-                (<?= date('M d, H:i', strtotime($row['Departure_time'])); ?>)
+        <?php while ($t = $trips->fetch_assoc()): ?>
+            <option
+                value="<?= $t['Schedule_ID']; ?>"
+                data-vehicle="<?= $t['Vehicle_ID']; ?>">
+                <?= htmlspecialchars($t['Route_Name']); ?>
+                (<?= date('M d, H:i', strtotime($t['Departure_time'])); ?>)
+                <?= $t['schedule_status'] === 'In Progress'
+                    ? '[In Progress]'
+                    : '[Scheduled]' ?>
             </option>
         <?php endwhile; ?>
     </select>
@@ -157,15 +198,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <label>Incident Type</label>
     <select name="incident_type" required>
-        <option value="Accident">Accident</option>
         <option value="Breakdown">Breakdown</option>
+        <option value="Accident">Accident</option>
         <option value="Delay">Delay</option>
-        <option value="Behavior">Behavior</option>
+        <option value="Passenger Behavior">Passenger Behavior</option>
         <option value="Other">Other</option>
     </select>
 
     <label>Description</label>
-    <textarea name="description" rows="5" required></textarea>
+    <textarea name="description" rows="5" required
+        placeholder="Describe what happened..."></textarea>
 
     <label>Priority</label>
     <select name="priority">
@@ -175,14 +217,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <option value="Critical">Critical</option>
     </select>
 
-    <button type="submit">Submit Report</button>
+    <button type="submit">Submit Incident Report</button>
+
 </form>
 </div>
+<?php else: ?>
+    <div class="no-data">
+        No active shuttle trips available for incident reporting.
+    </div>
+<?php endif; ?>
+
 </div>
 
 <script>
-function updateVehicle(select) {
-    const vehicleId = select.options[select.selectedIndex].dataset.vehicle;
+function setVehicle(select) {
+    const vehicleId = select.options[select.selectedIndex].dataset.vehicle || '';
     document.getElementById('vehicle_id').value = vehicleId;
 }
 </script>

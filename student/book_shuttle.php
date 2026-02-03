@@ -17,7 +17,7 @@ $routes = $conn->query("
 ");
 
 /* ------------------------------------
-   Selected route (GET, not POST)
+   Selected route (GET)
 ------------------------------------ */
 $route_id = $_GET['route_id'] ?? null;
 $stops = [];
@@ -28,7 +28,6 @@ if ($route_id) {
         FROM route_stops
         WHERE Route_ID = ?
         ORDER BY Stop_Order
-
     ");
     $stmt->bind_param("i", $route_id);
     $stmt->execute();
@@ -55,12 +54,26 @@ body {
     border-radius:10px;
 }
 
-select, button {
+label {
+    display:block;
+    margin-top:15px;
+    font-weight:600;
+}
+
+select, input[type="date"], button {
     width:100%;
     padding:12px;
-    margin-top:15px;
+    margin-top:8px;
     border-radius:8px;
     border:1px solid #ccc;
+}
+
+.date-bar {
+    background:#fafafa;
+    padding:12px;
+    border-radius:8px;
+    border:1px solid #ddd;
+    margin-top:15px;
 }
 
 button {
@@ -69,6 +82,7 @@ button {
     border:none;
     font-size:16px;
     cursor:pointer;
+    margin-top:20px;
 }
 
 button:hover {
@@ -80,11 +94,10 @@ button:hover {
 
 <?php include 'student_navbar.php'; ?>
 
-
 <div class="container">
 <h2>Shuttle Service</h2>
 
-<!-- Route selection (GET = no resubmission) -->
+<!-- Route selection -->
 <form method="GET">
     <label>Select Route</label>
     <select name="route_id" onchange="this.form.submit()" required>
@@ -99,9 +112,21 @@ button:hover {
 </form>
 
 <?php if ($route_id): ?>
-<!-- Stops selection -->
+<!-- Booking details -->
 <form method="POST" action="select_time.php">
     <input type="hidden" name="route_id" value="<?= $route_id ?>">
+
+    <!-- DATE BAR (NEW, CLEAN) -->
+    <div class="date-bar">
+        <label>Travel Date</label>
+        <input 
+            type="date" 
+            name="travel_date" 
+            required 
+            min="<?= date('Y-m-d'); ?>"
+            value="<?= date('Y-m-d'); ?>"
+        >
+    </div>
 
     <label>Pick-up Point</label>
     <select name="pickup_stop_id" id="pickup_stop" required onchange="filterDropoff()">
@@ -128,7 +153,6 @@ button:hover {
 <?php endif; ?>
 
 </div>
-</body>
 
 <script>
 function filterDropoff() {
@@ -139,13 +163,11 @@ function filterDropoff() {
 
     for (let option of dropoff.options) {
         if (!option.dataset.order) continue;
-
-        // Disable stops that are BEFORE or SAME as pickup
         option.disabled = parseInt(option.dataset.order) <= parseInt(pickupOrder);
     }
-
     dropoff.value = '';
 }
 </script>
 
+</body>
 </html>
