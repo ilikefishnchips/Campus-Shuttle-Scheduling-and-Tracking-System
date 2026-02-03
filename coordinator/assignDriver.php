@@ -8,16 +8,13 @@ if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Transport Coordinator')
     exit();
 }
 
-// Handle form submission for assigning multiple schedules
+// Handle form submission for assigning single schedule
 if($_SERVER['REQUEST_METHOD'] == 'POST') {
     $driver_id = $_POST['driver_id'];
     $vehicle_id = $_POST['vehicle_id'];
     $route_id = $_POST['route_id'];
-    $start_date = $_POST['start_date'];
-    $end_date = $_POST['end_date'];
+    $schedule_date = $_POST['schedule_date'];
     $departure_times = $_POST['departure_times'];
-    $repeat_days = $_POST['repeat_days'] ?? [];
-    $frequency = $_POST['frequency'];
     
     // Begin transaction
     $conn->begin_transaction();
@@ -31,63 +28,37 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         ")->fetch_assoc();
         
         $duration_minutes = $route_info['Estimated_Duration_Minutes'] ?? 15;
-        
-        // Create schedules based on frequency and date range
-        $current_date = new DateTime($start_date);
-        $end_date_obj = new DateTime($end_date);
         $schedules_created = 0;
         
-        while($current_date <= $end_date_obj) {
-            $day_of_week = $current_date->format('w'); // 0 = Sunday, 1 = Monday, etc.
-            $date_str = $current_date->format('Y-m-d');
+        // Create schedule for each departure time
+        foreach($departure_times as $departure_time) {
+            $departure_datetime = $schedule_date . ' ' . $departure_time . ':00';
             
-            // Check if schedule should be created for this day
-            $should_create = false;
+            $expected_arrival = date('Y-m-d H:i:s', 
+                strtotime($departure_datetime . " +{$duration_minutes} minutes"));
             
-            if($frequency == 'daily') {
-                $should_create = true;
-            } elseif($frequency == 'weekdays') {
-                $should_create = ($day_of_week >= 1 && $day_of_week <= 5);
-            } elseif($frequency == 'weekends') {
-                $should_create = ($day_of_week == 0 || $day_of_week == 6);
-            } elseif($frequency == 'custom') {
-                $should_create = in_array($day_of_week, $repeat_days);
+            // Check vehicle capacity
+            $vehicle_info = $conn->query("
+                SELECT Capacity 
+                FROM vehicle 
+                WHERE Vehicle_ID = $vehicle_id
+            ")->fetch_assoc();
+            
+            $available_seats = $vehicle_info['Capacity'] ?? 30;
+            
+            // Insert schedule
+            $insert_sql = "INSERT INTO shuttle_schedule 
+                          (Vehicle_ID, Route_ID, Driver_ID, Departure_time, 
+                           Expected_Arrival, Status, Available_Seats) 
+                          VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)";
+            $stmt = $conn->prepare($insert_sql);
+            $stmt->bind_param("iiissi", 
+                $vehicle_id, $route_id, $driver_id, $departure_datetime, 
+                $expected_arrival, $available_seats);
+            
+            if($stmt->execute()) {
+                $schedules_created++;
             }
-            
-            if($should_create) {
-                // Create schedule for each departure time
-                foreach($departure_times as $departure_time) {
-                    $departure_datetime = $date_str . ' ' . $departure_time . ':00';
-                    
-                    $expected_arrival = date('Y-m-d H:i:s', 
-                        strtotime($departure_datetime . " +{$duration_minutes} minutes"));
-                    
-                    // Check vehicle capacity
-                    $vehicle_info = $conn->query("
-                        SELECT Capacity 
-                        FROM vehicle 
-                        WHERE Vehicle_ID = $vehicle_id
-                    ")->fetch_assoc();
-                    
-                    $available_seats = $vehicle_info['Capacity'] ?? 30;
-                    
-                    // Insert schedule
-                    $insert_sql = "INSERT INTO shuttle_schedule 
-                                  (Vehicle_ID, Route_ID, Driver_ID, Departure_time, 
-                                   Expected_Arrival, Status, Available_Seats) 
-                                  VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)";
-                    $stmt = $conn->prepare($insert_sql);
-                    $stmt->bind_param("iiissi", 
-                        $vehicle_id, $route_id, $driver_id, $departure_datetime, 
-                        $expected_arrival, $available_seats);
-                    
-                    if($stmt->execute()) {
-                        $schedules_created++;
-                    }
-                }
-            }
-            
-            $current_date->modify('+1 day');
         }
         
         $conn->commit();
@@ -157,7 +128,6 @@ if(isset($_GET['driver_id'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assign Driver Schedule - Coordinator Panel</title>
     <style>
-        /* 保持原有的CSS样式不变，添加一些新样式 */
         * {
             margin: 0;
             padding: 0;
@@ -325,12 +295,6 @@ if(isset($_GET['driver_id'])) {
             box-shadow: 0 0 0 2px rgba(156, 39, 176, 0.1);
         }
         
-        .date-range {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        
         .select-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -363,14 +327,6 @@ if(isset($_GET['driver_id'])) {
             font-size: 12px;
             color: #666;
             line-height: 1.4;
-        }
-        
-        .route-info {
-            margin-top: 5px;
-            padding: 5px;
-            background: #f8f9fa;
-            border-radius: 3px;
-            font-size: 11px;
         }
         
         .time-inputs {
@@ -418,51 +374,6 @@ if(isset($_GET['driver_id'])) {
             align-items: center;
             gap: 5px;
             margin-top: 10px;
-        }
-        
-        .frequency-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .frequency-option {
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.3s;
-        }
-        
-        .frequency-option.selected {
-            border-color: #9C27B0;
-            background: rgba(156, 39, 176, 0.1);
-            color: #9C27B0;
-        }
-        
-        .days-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 5px;
-            margin-top: 10px;
-        }
-        
-        .day-option {
-            padding: 10px 5px;
-            border: 2px solid #e0e0e0;
-            border-radius: 5px;
-            cursor: pointer;
-            text-align: center;
-            font-size: 12px;
-            transition: all 0.3s;
-        }
-        
-        .day-option.selected {
-            border-color: #9C27B0;
-            background: rgba(156, 39, 176, 0.1);
-            color: #9C27B0;
         }
         
         .btn-primary {
@@ -712,6 +623,14 @@ if(isset($_GET['driver_id'])) {
         .copy-times-btn:hover {
             background: #0d8bf2;
         }
+        
+        .date-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -720,7 +639,7 @@ if(isset($_GET['driver_id'])) {
         <div class="navbar-container">
             <div class="navbar-logo">
                 <img src="../assets/mmuShuttleLogo2.png" alt="Logo" class="logo-icon">
-                <span class="nav-title">Driver Schedule Assignment</span>
+                <span class="nav-title">Assign Driver Schedule</span>
             </div>            
             <div class="admin-profile">
                 <img src="../assets/mmuShuttleLogo2.png" alt="Coordinator" class="profile-pic">
@@ -738,7 +657,7 @@ if(isset($_GET['driver_id'])) {
             <h1 class="page-title">Assign Driver Schedule</h1>
         </div>
         
-        <p class="page-subtitle">Plan and assign shuttle schedules to drivers for specific date ranges</p>
+        <p class="page-subtitle">Plan and assign shuttle schedules to drivers for specific dates</p>
         
         <?php if(isset($success_message)): ?>
             <div class="alert alert-success">
@@ -892,25 +811,14 @@ if(isset($_GET['driver_id'])) {
                         <input type="hidden" name="route_id" id="selectedRoute" required>
                     </div>
                     
-                    <!-- Date Range -->
+                    <!-- Schedule Date -->
                     <div class="form-group">
-                        <label class="form-label">Schedule Date Range</label>
-                        <div class="date-range">
-                            <div>
-                                <label class="form-label">Start Date</label>
-                                <input type="date" name="start_date" id="startDate" 
-                                       class="form-control" required 
-                                       min="<?php echo date('Y-m-d'); ?>"
-                                       onchange="calculateSummary()">
-                            </div>
-                            <div>
-                                <label class="form-label">End Date</label>
-                                <input type="date" name="end_date" id="endDate" 
-                                       class="form-control" required
-                                       min="<?php echo date('Y-m-d'); ?>"
-                                       onchange="calculateSummary()">
-                            </div>
-                        </div>
+                        <label class="form-label">Schedule Date</label>
+                        <input type="date" name="schedule_date" id="scheduleDate" 
+                               class="date-input" required 
+                               min="<?php echo date('Y-m-d'); ?>"
+                               value="<?php echo date('Y-m-d'); ?>"
+                               onchange="calculateSummary()">
                     </div>
                     
                     <!-- Departure Times -->
@@ -922,52 +830,6 @@ if(isset($_GET['driver_id'])) {
                                        class="form-control" required value="08:00">
                             </div>
                         </div>
-                        <button type="button" class="add-time-btn" onclick="addTimeInput()">
-                            + Add Another Time
-                        </button>
-                    </div>
-                    
-                    <!-- Frequency -->
-                    <div class="form-group">
-                        <label class="form-label">Schedule Frequency</label>
-                        <div class="frequency-options">
-                            <div class="frequency-option selected" 
-                                 data-frequency="daily" 
-                                 onclick="selectFrequency(this, 'daily')">
-                                Daily
-                            </div>
-                            <div class="frequency-option" 
-                                 data-frequency="weekdays" 
-                                 onclick="selectFrequency(this, 'weekdays')">
-                                Weekdays Only
-                            </div>
-                            <div class="frequency-option" 
-                                 data-frequency="weekends" 
-                                 onclick="selectFrequency(this, 'weekends')">
-                                Weekends Only
-                            </div>
-                            <div class="frequency-option" 
-                                 data-frequency="custom" 
-                                 onclick="selectFrequency(this, 'custom')">
-                                Custom Days
-                            </div>
-                        </div>
-                        <input type="hidden" name="frequency" id="selectedFrequency" value="daily">
-                    </div>
-                    
-                    <!-- Custom Days Selection (hidden by default) -->
-                    <div class="form-group" id="customDaysSection" style="display: none;">
-                        <label class="form-label">Select Days</label>
-                        <div class="days-grid">
-                            <div class="day-option" data-day="1" onclick="toggleDay(this, 1)">Mon</div>
-                            <div class="day-option" data-day="2" onclick="toggleDay(this, 2)">Tue</div>
-                            <div class="day-option" data-day="3" onclick="toggleDay(this, 3)">Wed</div>
-                            <div class="day-option" data-day="4" onclick="toggleDay(this, 4)">Thu</div>
-                            <div class="day-option" data-day="5" onclick="toggleDay(this, 5)">Fri</div>
-                            <div class="day-option" data-day="6" onclick="toggleDay(this, 6)">Sat</div>
-                            <div class="day-option" data-day="0" onclick="toggleDay(this, 0)">Sun</div>
-                        </div>
-                        <input type="hidden" name="repeat_days[]" id="selectedDays">
                     </div>
                     
                     <!-- Summary -->
@@ -977,7 +839,7 @@ if(isset($_GET['driver_id'])) {
                     </div>
                     
                     <!-- Submit Button -->
-                    <button type="submit" class="btn-primary btn-block mt-4">Create Schedules</button>
+                    <button type="submit" class="btn-primary btn-block mt-4">Create Schedule</button>
                 </form>
             </div>
             
@@ -1047,7 +909,6 @@ if(isset($_GET['driver_id'])) {
         let selectedVehicle = null;
         let selectedRoute = null;
         let selectedRouteDuration = 15;
-        let selectedDays = [];
         
         function selectDriver(element, driverId) {
             document.querySelectorAll('#driverSelect .select-card').forEach(card => {
@@ -1107,36 +968,6 @@ if(isset($_GET['driver_id'])) {
             calculateSummary();
         }
         
-        function selectFrequency(element, frequency) {
-            document.querySelectorAll('.frequency-option').forEach(opt => {
-                opt.classList.remove('selected');
-            });
-            element.classList.add('selected');
-            document.getElementById('selectedFrequency').value = frequency;
-            
-            // Show/hide custom days section
-            const customDaysSection = document.getElementById('customDaysSection');
-            if(frequency === 'custom') {
-                customDaysSection.style.display = 'block';
-            } else {
-                customDaysSection.style.display = 'none';
-            }
-            
-            calculateSummary();
-        }
-        
-        function toggleDay(element, day) {
-            element.classList.toggle('selected');
-            const index = selectedDays.indexOf(day);
-            if(index === -1) {
-                selectedDays.push(day);
-            } else {
-                selectedDays.splice(index, 1);
-            }
-            document.getElementById('selectedDays').value = selectedDays.join(',');
-            calculateSummary();
-        }
-        
         function addTimeInput() {
             const container = document.getElementById('timeInputsContainer');
             const newInput = document.createElement('div');
@@ -1191,71 +1022,42 @@ if(isset($_GET['driver_id'])) {
         }
         
         function calculateSummary() {
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const frequency = document.getElementById('selectedFrequency').value;
+            const scheduleDate = document.getElementById('scheduleDate').value;
             const timeInputs = document.querySelectorAll('input[name="departure_times[]"]');
             const timesCount = timeInputs.length;
             
-            if(!startDate || !endDate || !selectedDriver || !selectedVehicle || !selectedRoute) {
+            if(!scheduleDate || !selectedDriver || !selectedVehicle || !selectedRoute) {
                 document.getElementById('summarySection').style.display = 'none';
                 return;
             }
             
-            // Calculate number of days
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-            
-            // Calculate number of schedules
-            let scheduleDays = 0;
-            for(let i = 0; i < daysDiff; i++) {
-                const currentDate = new Date(start);
-                currentDate.setDate(start.getDate() + i);
-                const dayOfWeek = currentDate.getDay();
-                
-                let includeDay = false;
-                if(frequency === 'daily') {
-                    includeDay = true;
-                } else if(frequency === 'weekdays') {
-                    includeDay = (dayOfWeek >= 1 && dayOfWeek <= 5);
-                } else if(frequency === 'weekends') {
-                    includeDay = (dayOfWeek === 0 || dayOfWeek === 6);
-                } else if(frequency === 'custom') {
-                    includeDay = selectedDays.includes(dayOfWeek);
-                }
-                
-                if(includeDay) scheduleDays++;
-            }
-            
-            const totalSchedules = scheduleDays * timesCount;
+            // Format date
+            const date = new Date(scheduleDate);
+            const formattedDate = date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
             
             // Update summary
             document.getElementById('summarySection').style.display = 'block';
             document.getElementById('summaryContent').innerHTML = `
                 <div class="summary-item">
-                    <span>Duration:</span>
-                    <span>${daysDiff} days (${startDate} to ${endDate})</span>
+                    <span>Schedule Date:</span>
+                    <span>${formattedDate}</span>
                 </div>
                 <div class="summary-item">
-                    <span>Frequency:</span>
-                    <span>${frequency.charAt(0).toUpperCase() + frequency.slice(1)}</span>
-                </div>
-                <div class="summary-item">
-                    <span>Departure Times:</span>
-                    <span>${timesCount} time(s) per day</span>
+                    <span>Number of Trips:</span>
+                    <span>${timesCount}</span>
                 </div>
                 <div class="summary-item">
                     <span>Route Duration:</span>
                     <span>${selectedRouteDuration} minutes per trip</span>
                 </div>
                 <div class="summary-item">
-                    <span>Schedule Days:</span>
-                    <span>${scheduleDays} days</span>
-                </div>
-                <div class="summary-item">
-                    <span><strong>Total Schedules:</strong></span>
-                    <span><strong>${totalSchedules}</strong></span>
+                    <span><strong>Total Time:</strong></span>
+                    <span><strong>${timesCount * selectedRouteDuration} minutes</strong></span>
                 </div>
             `;
         }
@@ -1273,8 +1075,7 @@ if(isset($_GET['driver_id'])) {
             }
             
             // Add event listeners for summary calculation
-            document.getElementById('startDate').addEventListener('change', calculateSummary);
-            document.getElementById('endDate').addEventListener('change', calculateSummary);
+            document.getElementById('scheduleDate').addEventListener('change', calculateSummary);
             
             // Initialize with one time input
             calculateSummary();
