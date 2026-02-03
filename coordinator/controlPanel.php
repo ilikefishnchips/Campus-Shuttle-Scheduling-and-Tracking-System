@@ -745,7 +745,7 @@ $vehicle_status = $conn->query("
                             👨‍✈️ Assign Driver
                         </button>
                         <button class="action-btn secondary" onclick="window.location.href='/reports.php'">
-                            📊 Generate Report
+                            📊 Incident Reports
                         </button>
                     </div>
                 </div>

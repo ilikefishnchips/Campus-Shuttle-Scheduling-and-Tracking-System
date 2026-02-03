@@ -17,6 +17,190 @@ $route_stops = [];
 $route_times = [];
 $edit_mode = false;
 
+// 发送路线更新通知函数
+function sendRouteUpdateNotifications($route_id, $route_name, $start_location, $end_location, $duration) {
+    global $conn;
+    
+    // 1. 获取受影响的学生（有预定该路线的）
+    $affected_students = [];
+    $student_sql = "SELECT DISTINCT sp.Student_ID, u.User_ID, u.Email, u.Full_Name 
+                    FROM seat_reservation sr
+                    JOIN student_profile sp ON sr.Student_ID = sp.Student_ID
+                    JOIN user u ON sp.User_ID = u.User_ID
+                    WHERE sr.Route_ID = ? AND sr.Status = 'Reserved'";
+    $student_stmt = $conn->prepare($student_sql);
+    $student_stmt->bind_param("i", $route_id);
+    $student_stmt->execute();
+    $student_result = $student_stmt->get_result();
+    
+    while ($student = $student_result->fetch_assoc()) {
+        $affected_students[] = $student;
+    }
+    
+    // 2. 获取该路线的所有司机
+    $affected_drivers = [];
+    $driver_sql = "SELECT DISTINCT u.User_ID, u.Email, u.Full_Name 
+                   FROM shuttle_schedule ss
+                   JOIN user u ON ss.Driver_ID = u.User_ID
+                   WHERE ss.Route_ID = ? AND ss.Status IN ('Scheduled', 'In Progress')";
+    $driver_stmt = $conn->prepare($driver_sql);
+    $driver_stmt->bind_param("i", $route_id);
+    $driver_stmt->execute();
+    $driver_result = $driver_stmt->get_result();
+    
+    while ($driver = $driver_result->fetch_assoc()) {
+        $affected_drivers[] = $driver;
+    }
+    
+    // 3. 获取所有学生（广播通知）
+    $all_students_sql = "SELECT u.User_ID, u.Email, u.Full_Name 
+                         FROM user u
+                         JOIN user_roles ur ON u.User_ID = ur.User_ID
+                         JOIN roles r ON ur.Role_ID = r.Role_ID
+                         WHERE r.Role_name = 'Student'";
+    $all_students_result = $conn->query($all_students_sql);
+    $all_students = $all_students_result->fetch_all(MYSQLI_ASSOC);
+    
+    // 4. 获取所有司机（广播通知）
+    $all_drivers_sql = "SELECT u.User_ID, u.Email, u.Full_Name 
+                        FROM user u
+                        JOIN user_roles ur ON u.User_ID = ur.User_ID
+                        JOIN roles r ON ur.Role_ID = r.Role_ID
+                        WHERE r.Role_name = 'Driver'";
+    $all_drivers_result = $conn->query($all_drivers_sql);
+    $all_drivers = $all_drivers_result->fetch_all(MYSQLI_ASSOC);
+    
+    // 5. 创建通知消息
+    $notification_title = "Route Updated: " . $route_name;
+    $notification_message = "Route '{$route_name}' has been updated.\n";
+    $notification_message .= "From: {$start_location} to {$end_location}\n";
+    $notification_message .= "Duration: {$duration} minutes\n";
+    $notification_message .= "Please check the updated route details.";
+    
+    // 6. 插入通知到数据库
+    $insert_sql = "INSERT INTO notifications (User_ID, Title, Message, Type, Priority, Related_Route_ID) 
+                   VALUES (?, ?, ?, 'Route_Update', 'High', ?)";
+    $insert_stmt = $conn->prepare($insert_sql);
+    
+    // 给受影响的学生发送通知
+    foreach ($affected_students as $student) {
+        $insert_stmt->bind_param("issi", 
+            $student['User_ID'], 
+            $notification_title, 
+            $notification_message, 
+            $route_id
+        );
+        $insert_stmt->execute();
+    }
+    
+    // 给所有司机发送通知
+    foreach ($all_drivers as $driver) {
+        $insert_stmt->bind_param("issi", 
+            $driver['User_ID'], 
+            $notification_title, 
+            $notification_message, 
+            $route_id
+        );
+        $insert_stmt->execute();
+    }
+    
+    // 可选：给所有学生发送广播通知
+    foreach ($all_students as $student) {
+        // 避免重复发送给已受影响的学生
+        $already_notified = false;
+        foreach ($affected_students as $affected) {
+            if ($affected['User_ID'] == $student['User_ID']) {
+                $already_notified = true;
+                break;
+            }
+        }
+        
+        if (!$already_notified) {
+            $broadcast_title = "New Route Available: " . $route_name;
+            $broadcast_message = "A new route '{$route_name}' is now available.\n";
+            $broadcast_message .= "From: {$start_location} to {$end_location}\n";
+            $broadcast_message .= "Duration: {$duration} minutes\n";
+            $broadcast_message .= "Check it out for your travels!";
+            
+            $broadcast_stmt = $conn->prepare($insert_sql);
+            $broadcast_stmt->bind_param("issi", 
+                $student['User_ID'], 
+                $broadcast_title, 
+                $broadcast_message, 
+                $route_id
+            );
+            $broadcast_stmt->execute();
+        }
+    }
+    
+    // 7. 发送电子邮件通知（可选）
+    // sendEmailNotifications($affected_students, $affected_drivers, $notification_title, $notification_message);
+    
+    return count($affected_students) + count($affected_drivers);
+}
+
+// 发送新路线创建通知函数
+function sendNewRouteNotifications($route_id, $route_name, $start_location, $end_location, $duration) {
+    global $conn;
+    
+    // 获取所有学生
+    $students_sql = "SELECT u.User_ID, u.Email, u.Full_Name 
+                     FROM user u
+                     JOIN user_roles ur ON u.User_ID = ur.User_ID
+                     JOIN roles r ON ur.Role_ID = r.Role_ID
+                     WHERE r.Role_name = 'Student'";
+    $students_result = $conn->query($students_sql);
+    $students = $students_result->fetch_all(MYSQLI_ASSOC);
+    
+    // 获取所有司机
+    $drivers_sql = "SELECT u.User_ID, u.Email, u.Full_Name 
+                    FROM user u
+                    JOIN user_roles ur ON u.User_ID = ur.User_ID
+                    JOIN roles r ON ur.Role_ID = r.Role_ID
+                    WHERE r.Role_name = 'Driver'";
+    $drivers_result = $conn->query($drivers_sql);
+    $drivers = $drivers_result->fetch_all(MYSQLI_ASSOC);
+    
+    // 创建通知消息
+    $title = "New Route Created: " . $route_name;
+    $message = "A new route '{$route_name}' has been added to the system.\n";
+    $message .= "From: {$start_location} to {$end_location}\n";
+    $message .= "Duration: {$duration} minutes\n";
+    $message .= "Check it out for your travels!";
+    
+    // 插入通知到数据库
+    $insert_sql = "INSERT INTO notifications (User_ID, Title, Message, Type, Priority, Related_Route_ID) 
+                   VALUES (?, ?, ?, 'Route_Update', 'Normal', ?)";
+    $insert_stmt = $conn->prepare($insert_sql);
+    
+    // 给学生发送通知
+    foreach ($students as $student) {
+        $insert_stmt->bind_param("issi", 
+            $student['User_ID'], 
+            $title, 
+            $message, 
+            $route_id
+        );
+        $insert_stmt->execute();
+    }
+    
+    // 给司机发送通知
+    foreach ($drivers as $driver) {
+        $insert_stmt->bind_param("issi", 
+            $driver['User_ID'], 
+            $title, 
+            $message, 
+            $route_id
+        );
+        $insert_stmt->execute();
+    }
+    
+    // 发送电子邮件
+    // sendEmailNotifications($students, $drivers, $title, $message);
+    
+    return count($students) + count($drivers);
+}
+
 // Handle form actions
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action'])) {
@@ -52,6 +236,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $route_stmt->bind_param("sssis", $route_name, $start_location, $end_location, $estimated_duration, $status);
                         $route_stmt->execute();
                         $route_id = $conn->insert_id;
+                        
+                        // 发送新路线创建通知
+                        $notification_count = sendNewRouteNotifications($route_id, $route_name, $start_location, $end_location, $estimated_duration);
                         
                         // Insert departure times if provided
                         if (!empty($departure_times) && is_array($departure_times)) {
@@ -99,7 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         }
                         
                         $conn->commit();
-                        $message = "Route created successfully!";
+                        $message = "Route created successfully! Notifications sent to " . $notification_count . " users.";
                         $message_type = "success";
                     } catch (Exception $e) {
                         $conn->rollback();
@@ -174,6 +361,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                                $estimated_duration, $status, $route_id);
                         $update_stmt->execute();
                         
+                        // 发送路线更新通知
+                        $notification_count = sendRouteUpdateNotifications($route_id, $route_name, $start_location, $end_location, $estimated_duration);
+                        
                         // Delete existing departure times
                         $delete_times_sql = "DELETE FROM route_time WHERE Route_ID = ?";
                         $delete_times_stmt = $conn->prepare($delete_times_sql);
@@ -232,7 +422,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         }
                         
                         $conn->commit();
-                        $message = "Route updated successfully!";
+                        $message = "Route updated successfully! Notifications sent to " . $notification_count . " users.";
                         $message_type = "success";
                         $edit_mode = false;
                         $route_details = null;
@@ -340,6 +530,15 @@ $schedule_result = $conn->query($schedule_sql);
 while ($row = $schedule_result->fetch_assoc()) {
     $schedule_counts[$row['Route_ID']] = $row['count'];
 }
+
+// 获取未读通知数量
+$unread_sql = "SELECT COUNT(*) as count FROM notifications 
+              WHERE User_ID = ? AND Status = 'Unread'";
+$unread_stmt = $conn->prepare($unread_sql);
+$unread_stmt->bind_param("i", $_SESSION['user_id']);
+$unread_stmt->execute();
+$unread_result = $unread_stmt->get_result();
+$unread_count = $unread_result->fetch_assoc()['count'];
 ?>
 
 <!DOCTYPE html>
@@ -820,6 +1019,30 @@ while ($row = $schedule_result->fetch_assoc()) {
             font-size: 10px;
         }
         
+        .notification-link {
+            position: relative;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            margin-right: 15px;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #f44336;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
         @media (max-width: 1200px) {
             .manage-routes-container {
                 padding: 15px;
@@ -871,6 +1094,12 @@ while ($row = $schedule_result->fetch_assoc()) {
                     <?php echo htmlspecialchars($_SESSION['username']); ?>
                 </div>
                 <div class="profile-menu">
+                    <a href="notification.php" class="notification-link">
+                        <i class="fas fa-bell"></i>
+                        <?php if ($unread_count > 0): ?>
+                            <span class="notification-badge"><?php echo $unread_count; ?></span>
+                        <?php endif; ?>
+                    </a>
                     <button class="logout-btn" onclick="window.location.href='../logout.php'">Logout</button>
                 </div>
             </div>
@@ -882,7 +1111,7 @@ while ($row = $schedule_result->fetch_assoc()) {
         <!-- Page Header -->
         <div class="page-header">
             <h1 class="page-title"><?php echo $edit_mode ? 'Edit Route' : 'Route Management'; ?></h1>
-            <button class="back-btn" onclick="window.location.href='adminDashboard.php'">← Back to Dashboard</button>
+            <button class="back-btn" onclick="window.location.href='controlPanel.php'">← Back to Dashboard</button>
         </div>
         
         <!-- Messages -->
@@ -1229,7 +1458,7 @@ while ($row = $schedule_result->fetch_assoc()) {
                                             <?php endif; ?>
                                             
                                             <form method="POST" action="" style="display: inline;" 
-                                                onsubmit="return confirmDelete(<?php echo $route['Route_ID']; ?>, '<?php echo htmlspecialchars(addslashes($route['Route_Name'])); ?>', <?php echo $route['Active_Schedules']; ?>)">
+                                                  onsubmit="return confirmDelete(<?php echo $route['Route_ID']; ?>, '<?php echo htmlspecialchars(addslashes($route['Route_Name'])); ?>', <?php echo $route['Active_Schedules']; ?>)">
                                                 <input type="hidden" name="action" value="delete_route">
                                                 <input type="hidden" name="route_id" value="<?php echo $route['Route_ID']; ?>">
                                                 <button type="submit" class="action-btn delete-btn" <?php echo $route['Active_Schedules'] > 0 ? 'disabled' : ''; ?>
