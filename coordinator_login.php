@@ -2,7 +2,7 @@
 session_start();
 // Redirect if already logged in as coordinator
 if(isset($_SESSION['user_id']) && $_SESSION['role'] == 'Transport Coordinator') {
-    header('Location: coordinator/dashboard.php');
+    header('Location: coordinator/controlPanel.php');
     exit();
 }
 ?>
