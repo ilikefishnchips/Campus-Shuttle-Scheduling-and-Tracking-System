@@ -49,17 +49,38 @@ $upcoming_bookings = $stmt->get_result();
    Active shuttles
 ----------------------------------------- */
 $stmt = $conn->prepare("
-SELECT ss.*, r.Route_Name, v.Plate_number, u.Full_Name AS Driver_Name
+SELECT 
+    ss.*, 
+    r.Route_Name, 
+    v.Plate_number, 
+    u.Full_Name AS Driver_Name
 FROM shuttle_schedule ss
 JOIN route r ON ss.Route_ID = r.Route_ID
 JOIN vehicle v ON ss.Vehicle_ID = v.Vehicle_ID
 JOIN user u ON ss.Driver_ID = u.User_ID
-WHERE ss.Status = 'In Progress'
+WHERE 
+    NOW() BETWEEN ss.Departure_time AND ss.Expected_Arrival
 ORDER BY ss.Expected_Arrival ASC
 LIMIT 3
 ");
 $stmt->execute();
 $active_shuttles = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+
+/* -----------------------------------------
+   Unread notification count
+----------------------------------------- */
+$stmt = $conn->prepare("
+    SELECT COUNT(*) AS unread_count
+    FROM notifications
+    WHERE User_ID = ?
+    AND Status = 'Unread'
+");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$unread = $stmt->get_result()->fetch_assoc();
+$unread_count = (int)$unread['unread_count'];
+
 ?>
 <!DOCTYPE html>
 <html>
@@ -84,6 +105,21 @@ body { background:#f2f2f2; }
     align-items:center;
     border-bottom:1px solid #ddd;
 }
+
+.notif-btn {
+    position: relative;
+}
+
+.notif-dot {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 10px;
+    height: 10px;
+    background: #F44336;
+    border-radius: 50%;
+}
+
 .nav-logo { height:45px; }
 .nav-right { display:flex; align-items:center; gap:15px; }
 .nav-btn {
@@ -225,9 +261,15 @@ body { background:#f2f2f2; }
 <div class="quick-actions">
 <button class="action-btn" onclick="location.href='book_shuttle.php'">🚌 Book Shuttle</button>
 <button class="action-btn" onclick="location.href='my_bookings.php'">📋 View Bookings</button>
-<button class="action-btn" onclick="location.href='track_shuttle.php'">🗺️ Track Shuttle</button>
+<button class="action-btn" onclick="location.href='../track_shuttle.php'">🗺️ Track Shuttle</button>
 <button class="action-btn" onclick="location.href='report_incident.php'">🚨 Report Incident</button>
-<button class="action-btn" onclick="location.href='notifications.php'">🔔 Notifications</button>
+<button class="action-btn notif-btn" onclick="location.href='notifications.php'">
+    🔔 Notifications
+    <?php if ($unread_count > 0): ?>
+        <span class="notif-dot"></span>
+    <?php endif; ?>
+</button>
+
 </div>
 </div>
 

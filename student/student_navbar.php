@@ -3,9 +3,27 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once '../includes/config.php';
+
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
     return;
 }
+
+$user_id = (int)$_SESSION['user_id'];
+
+/* -----------------------------------------
+   Unread notification count (for navbar dot)
+----------------------------------------- */
+$stmt = $conn->prepare("
+    SELECT COUNT(*) AS unread_count
+    FROM notifications
+    WHERE User_ID = ?
+    AND Status = 'Unread'
+");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$unread = $stmt->get_result()->fetch_assoc();
+$unread_count = (int)$unread['unread_count'];
 ?>
 
 <style>
@@ -40,6 +58,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
     display: flex;
     align-items: center;
     gap: 5px;
+    position: relative;
 }
 
 .nav-actions a:hover {
@@ -53,6 +72,17 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
 
 .nav-icon:hover {
     transform: scale(1.1);
+}
+
+/* 🔴 Notification dot */
+.notif-dot {
+    position: absolute;
+    top: -4px;
+    right: -6px;
+    width: 9px;
+    height: 9px;
+    background: #F44336;
+    border-radius: 50%;
 }
 </style>
 
@@ -69,6 +99,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
         <!-- 🔔 Notifications -->
         <a href="notifications.php" class="nav-icon" title="Notifications">
             🔔
+            <?php if ($unread_count > 0): ?>
+                <span class="notif-dot"></span>
+            <?php endif; ?>
         </a>
 
         <!-- 🚨 Report Incident -->

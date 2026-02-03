@@ -16,8 +16,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
    REQUIRED SESSION DATA
 ================================ */
 if (
-    !isset($_SESSION['route_id']) ||
-    !isset($_SESSION['time_id']) ||
+    !isset($_SESSION['schedule_id']) ||
     !isset($_SESSION['travel_date']) ||
     !isset($_SESSION['pickup_stop_id']) ||
     !isset($_SESSION['dropoff_stop_id'])
@@ -26,56 +25,38 @@ if (
     exit();
 }
 
-$route_id    = (int) $_SESSION['route_id'];
-$time_id     = (int) $_SESSION['time_id'];
-$travel_date = $_SESSION['travel_date'];
+$schedule_id = (int) $_SESSION['schedule_id'];
 
 /* ===============================
-   GET DEPARTURE TIME FROM Time_ID
+   GET SCHEDULE DETAILS
 ================================ */
 $stmt = $conn->prepare("
-    SELECT Departure_Time
-    FROM route_time
-    WHERE Time_ID = ? AND Route_ID = ?
-");
-$stmt->bind_param("ii", $time_id, $route_id);
-$stmt->execute();
-$timeRow = $stmt->get_result()->fetch_assoc();
-
-if (!$timeRow) {
-    die("Invalid time selection.");
-}
-
-$departure_time = $timeRow['Departure_Time']; // HH:MM:SS
-
-/* ===============================
-   FIND EXACT SCHEDULE
-================================ */
-$stmt = $conn->prepare("
-    SELECT ss.Schedule_ID, r.Route_Name, v.Capacity
+    SELECT 
+        ss.Schedule_ID,
+        ss.Departure_time,
+        r.Route_Name,
+        v.Capacity
     FROM shuttle_schedule ss
     JOIN route r   ON ss.Route_ID = r.Route_ID
     JOIN vehicle v ON ss.Vehicle_ID = v.Vehicle_ID
-    WHERE ss.Route_ID = ?
-      AND DATE(ss.Departure_time) = ?
-      AND TIME(ss.Departure_time) = ?
-      AND ss.Status IN ('Scheduled', 'In Progress')
+    WHERE ss.Schedule_ID = ?
+      AND ss.Status = 'Scheduled'
     LIMIT 1
 ");
-$stmt->bind_param("iss", $route_id, $travel_date, $departure_time);
+$stmt->bind_param("i", $schedule_id);
 $stmt->execute();
 $schedule = $stmt->get_result()->fetch_assoc();
 
 if (!$schedule) {
-    die("❌ No shuttle available for the selected date and time.");
+    die("❌ This shuttle is no longer available for booking.");
 }
 
-$schedule_id = (int) $schedule['Schedule_ID'];
-$route_name  = $schedule['Route_Name'];
-$capacity    = (int) $schedule['Capacity'];
+$route_name     = $schedule['Route_Name'];
+$departure_time = $schedule['Departure_time'];
+$capacity       = (int) $schedule['Capacity'];
 
 /* ===============================
-   GET RESERVED SEATS (EXACT SCHEDULE)
+   GET RESERVED SEATS
 ================================ */
 $reservedSeats = [];
 
@@ -87,8 +68,8 @@ $stmt = $conn->prepare("
 ");
 $stmt->bind_param("i", $schedule_id);
 $stmt->execute();
-$result = $stmt->get_result();
 
+$result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) {
     $reservedSeats[] = (int) $row['Seat_number'];
 }
@@ -99,11 +80,10 @@ while ($row = $result->fetch_assoc()) {
 <title>Select Seat</title>
 <style>
 body {
-    font-family: 'Segoe UI', sans-serif;
+    font-family:'Segoe UI', sans-serif;
     background:#f5f5f5;
-    margin: 0;
+    margin:0;
 }
-
 .container {
     max-width:600px;
     margin:40px auto;
@@ -111,14 +91,12 @@ body {
     padding:30px;
     border-radius:10px;
 }
-
 .bus {
     display:grid;
     grid-template-columns: repeat(4, 1fr);
     gap:10px;
     margin-top:20px;
 }
-
 .seat {
     padding:15px;
     text-align:center;
@@ -126,30 +104,25 @@ body {
     cursor:pointer;
     font-weight:bold;
 }
-
 .available {
     background:#4CAF50;
     color:white;
 }
-
 .reserved {
     background:#ccc;
     color:#666;
     cursor:not-allowed;
 }
-
 .selected {
     background:#FF9800;
     color:white;
 }
-
 .driver {
     grid-column: span 4;
     text-align:center;
     font-weight:bold;
     margin-bottom:10px;
 }
-
 button {
     margin-top:20px;
     padding:12px;
@@ -169,8 +142,9 @@ button {
 
 <div class="container">
     <h2>🚌 <?= htmlspecialchars($route_name); ?></h2>
+
     <p>
-        <strong>Date:</strong> <?= htmlspecialchars($travel_date); ?><br>
+        <strong>Date:</strong> <?= date('Y-m-d', strtotime($departure_time)); ?><br>
         <strong>Departure:</strong> <?= date('H:i', strtotime($departure_time)); ?>
     </p>
 

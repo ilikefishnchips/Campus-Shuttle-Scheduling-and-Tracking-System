@@ -10,7 +10,21 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Driver') {
     exit();
 }
 
-$driver_id = $_SESSION['user_id'];
+$driver_id = (int)$_SESSION['user_id'];
+
+/* -----------------------------------------
+   Unread notification count (FOR RED DOT)
+----------------------------------------- */
+$stmt = $conn->prepare("
+    SELECT COUNT(*) AS unread_count
+    FROM notifications
+    WHERE User_ID = ?
+    AND Status = 'Unread'
+");
+$stmt->bind_param("i", $driver_id);
+$stmt->execute();
+$unread = $stmt->get_result()->fetch_assoc();
+$unread_count = (int)$unread['unread_count'];
 
 /* -----------------------------------------
    Driver profile
@@ -64,6 +78,7 @@ $incidents = $stmt->get_result();
 <html>
 <head>
 <title>Driver Dashboard</title>
+
 <style>
 *{
     margin:0;
@@ -159,8 +174,20 @@ body{ background:#f2f2f2; }
     padding:14px;
     border-radius:6px;
     cursor:pointer;
+    position:relative;
 }
 .action-btn:hover{ background:#000; }
+
+/* 🔴 Notification dot */
+.notif-dot{
+    position:absolute;
+    top:8px;
+    right:12px;
+    width:8px;
+    height:8px;
+    background:#F44336;
+    border-radius:50%;
+}
 
 @media(max-width:900px){
     .dashboard-grid{ grid-template-columns:1fr; }
@@ -222,8 +249,15 @@ body{ background:#f2f2f2; }
 <!-- Quick Actions -->
 <div class="quick-actions">
 <button class="action-btn" onclick="location.href='driver_routes.php'">🛣️ View All Routes</button>
+<button class="action-btn" onclick="location.href='view_passengers.php'">🧑‍🎓 View Passengers</button>
 <button class="action-btn" onclick="location.href='driver_reports.php'">🚨 Incident Reports</button>
-<button class="action-btn" onclick="location.href='notifications.php'">🔔 Notifications</button>
+
+<button class="action-btn" onclick="location.href='driver_notification.php'">
+    🔔 Notifications
+    <?php if ($unread_count > 0): ?>
+        <span class="notif-dot"></span>
+    <?php endif; ?>
+</button>
 </div>
 </div>
 

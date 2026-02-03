@@ -1,8 +1,12 @@
 <?php
 session_start();
-require_once '../includes/config.php';
 
+/* ===============================
+   PHP TIMEZONE (IMPORTANT)
+================================ */
 date_default_timezone_set('Asia/Kuala_Lumpur');
+
+require_once '../includes/config.php';
 
 /* ===============================
    ACCESS CONTROL
@@ -20,9 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pickup_stop_id'])) {
     $_SESSION['route_id']        = (int) $_POST['route_id'];
     $_SESSION['pickup_stop_id']  = (int) $_POST['pickup_stop_id'];
     $_SESSION['dropoff_stop_id'] = (int) $_POST['dropoff_stop_id'];
-
-    // ✅ SAVE DATE HERE
-    $_SESSION['travel_date'] = $_POST['travel_date'];
+    $_SESSION['travel_date']     = $_POST['travel_date'];
 
     /* Validate pickup < dropoff */
     $stmt = $conn->prepare("
@@ -51,7 +53,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pickup_stop_id'])) {
 ================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['schedule_id'])) {
     $_SESSION['schedule_id'] = (int) $_POST['schedule_id'];
-    $_SESSION['time_id']     = (int) $_POST['time_id'];
     $_SESSION['travel_date'] = $_POST['travel_date'];
 
     header("Location: select_seat.php");
@@ -77,7 +78,6 @@ $dropoff_stop_id = (int) $_SESSION['dropoff_stop_id'];
 /* ===============================
    SELECT DATE (DEFAULT TODAY)
 ================================ */
-
 if (isset($_GET['date'])) {
     $travel_date = $_GET['date'];
     $_SESSION['travel_date'] = $travel_date;
@@ -110,28 +110,24 @@ $dropoff = $conn->query("
 ")->fetch_assoc();
 
 /* ===============================
-   GET REAL SCHEDULES (IMPORTANT)
+   GET SCHEDULED SHUTTLES ONLY
 ================================ */
 $stmt = $conn->prepare("
     SELECT 
-        ss.Schedule_ID,
-        ss.Departure_time,
-        TIME(ss.Departure_time) AS dep_time,
-        rt.Time_ID
-    FROM shuttle_schedule ss
-    JOIN route_time rt 
-        ON rt.Route_ID = ss.Route_ID
-       AND TIME(ss.Departure_time) = rt.Departure_Time
-    WHERE ss.Route_ID = ?
-      AND DATE(ss.Departure_time) = ?
-      AND ss.Status IN ('Scheduled','In Progress')
-    ORDER BY ss.Departure_time
+        Schedule_ID,
+        Departure_time
+    FROM shuttle_schedule
+    WHERE Route_ID = ?
+      AND DATE(Departure_time) = ?
+      AND Status = 'Scheduled'
+    ORDER BY Departure_time
 ");
 $stmt->bind_param("is", $route_id, $travel_date);
 $stmt->execute();
 $schedules = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-$now = new DateTime();
+$now   = new DateTime();
+$today = date('Y-m-d');
 ?>
 <!DOCTYPE html>
 <html>
@@ -201,16 +197,19 @@ button {
            onchange="this.form.submit()">
 </form>
 
-<?php if (empty($schedules)): ?>
-    <div class="no-data">
-        No shuttle scheduled for this date.
-    </div>
-<?php endif; ?>
+<?php
+$hasVisible = false;
 
-<?php foreach ($schedules as $s):
+foreach ($schedules as $s):
 
-    $routeStart = new DateTime($travel_date . ' ' . $s['dep_time']);
-    if ($routeStart <= $now) continue;
+    $routeStart = new DateTime($s['Departure_time']);
+
+    // ⛔ Hide past times ONLY if today
+    if ($travel_date === $today && $routeStart <= $now) {
+        continue;
+    }
+
+    $hasVisible = true;
 
     $pickupTime  = (clone $routeStart)->modify("+{$pickup['Estimated_Time_From_Start']} minutes");
     $arrivalTime = (clone $routeStart)->modify("+{$dropoff['Estimated_Time_From_Start']} minutes");
@@ -226,13 +225,18 @@ button {
 
     <form method="POST">
         <input type="hidden" name="schedule_id" value="<?= $s['Schedule_ID']; ?>">
-        <input type="hidden" name="time_id" value="<?= $s['Time_ID']; ?>">
         <input type="hidden" name="travel_date" value="<?= $travel_date; ?>">
         <button>Select Seat</button>
     </form>
 </div>
 
 <?php endforeach; ?>
+
+<?php if (!$hasVisible): ?>
+    <div class="no-data">
+        No scheduled shuttles available for this date.
+    </div>
+<?php endif; ?>
 
 </div>
 </body>

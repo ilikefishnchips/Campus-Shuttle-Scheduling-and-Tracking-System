@@ -19,9 +19,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
    REQUIRED DATA
 ================================ */
 if (
-    !isset($_SESSION['route_id']) ||
-    !isset($_SESSION['time_id']) ||
-    !isset($_SESSION['travel_date']) ||
+    !isset($_SESSION['schedule_id']) ||
     !isset($_POST['seat_number'])
 ) {
     header('Location: book_shuttle.php');
@@ -29,9 +27,7 @@ if (
 }
 
 $user_id     = (int) $_SESSION['user_id'];
-$route_id    = (int) $_SESSION['route_id'];
-$time_id     = (int) $_SESSION['time_id'];
-$travel_date = $_SESSION['travel_date']; // YYYY-MM-DD
+$schedule_id = (int) $_SESSION['schedule_id'];
 $seat_number = (int) $_POST['seat_number'];
 
 /* ===============================
@@ -53,44 +49,27 @@ if (!$student) {
 $student_id = (int) $student['Student_ID'];
 
 /* ===============================
-   GET DEPARTURE TIME FROM Time_ID
+   VERIFY SCHEDULE IS BOOKABLE
 ================================ */
 $stmt = $conn->prepare("
-    SELECT Departure_Time
-    FROM route_time
-    WHERE Time_ID = ? AND Route_ID = ?
-");
-$stmt->bind_param("ii", $time_id, $route_id);
-$stmt->execute();
-$timeRow = $stmt->get_result()->fetch_assoc();
-
-if (!$timeRow) {
-    die("❌ Invalid departure time selected.");
-}
-
-$departure_time = $timeRow['Departure_Time']; // HH:MM:SS
-
-/* ===============================
-   FIND EXACT SCHEDULE (FIXED)
-================================ */
-$stmt = $conn->prepare("
-    SELECT Schedule_ID
+    SELECT Route_ID, Available_Seats
     FROM shuttle_schedule
-    WHERE Route_ID = ?
-      AND DATE(Departure_time) = ?
-      AND TIME(Departure_time) = ?
-      AND Status IN ('Scheduled', 'In Progress')
-    LIMIT 1
+    WHERE Schedule_ID = ?
+      AND Status = 'Scheduled'
 ");
-$stmt->bind_param("iss", $route_id, $travel_date, $departure_time);
+$stmt->bind_param("i", $schedule_id);
 $stmt->execute();
 $schedule = $stmt->get_result()->fetch_assoc();
 
 if (!$schedule) {
-    die("❌ No shuttle available for the selected date and time.");
+    die("❌ This shuttle is no longer available for booking.");
 }
 
-$schedule_id = (int) $schedule['Schedule_ID'];
+if ($schedule['Available_Seats'] <= 0) {
+    die("❌ No seats available on this shuttle.");
+}
+
+$route_id = (int) $schedule['Route_ID'];
 
 /* ===============================
    PREVENT DOUBLE SEAT BOOKING
@@ -110,10 +89,8 @@ if ($stmt->get_result()->num_rows > 0) {
 }
 
 /* ===============================
-   HANDLE REBOOKING (IMPORTANT)
+   HANDLE REBOOKING
 ================================ */
-
-// 1️⃣ Check for previously cancelled seat
 $stmt = $conn->prepare("
     SELECT Reservation_ID
     FROM seat_reservation
@@ -127,7 +104,7 @@ $stmt->execute();
 $cancelled = $stmt->get_result()->fetch_assoc();
 
 if ($cancelled) {
-    // ♻️ REUSE cancelled record
+    // ♻️ Reuse cancelled reservation
     $stmt = $conn->prepare("
         UPDATE seat_reservation
         SET Student_ID = ?,
@@ -138,19 +115,18 @@ if ($cancelled) {
     $stmt->bind_param("ii", $student_id, $cancelled['Reservation_ID']);
     $stmt->execute();
 } else {
-    // 🆕 First-time booking
+    // 🆕 New reservation
     $stmt = $conn->prepare("
         INSERT INTO seat_reservation
-            (Student_ID, Schedule_ID, Route_ID, Time_ID, Seat_number, Status, Booking_Time)
+            (Student_ID, Schedule_ID, Route_ID, Seat_number, Status, Booking_Time)
         VALUES
-            (?, ?, ?, ?, ?, 'Reserved', NOW())
+            (?, ?, ?, ?, 'Reserved', NOW())
     ");
     $stmt->bind_param(
-        "iiiii",
+        "iiii",
         $student_id,
         $schedule_id,
         $route_id,
-        $time_id,
         $seat_number
     );
     $stmt->execute();
@@ -162,17 +138,18 @@ if ($cancelled) {
 $stmt = $conn->prepare("
     UPDATE shuttle_schedule
     SET Available_Seats = Available_Seats - 1
-    WHERE Schedule_ID = ? AND Available_Seats > 0
+    WHERE Schedule_ID = ?
+      AND Available_Seats > 0
 ");
 $stmt->bind_param("i", $schedule_id);
 $stmt->execute();
 
 /* ===============================
-   CLEAR SESSION (CLEAN)
+   CLEAN SESSION
 ================================ */
 unset(
+    $_SESSION['schedule_id'],
     $_SESSION['route_id'],
-    $_SESSION['time_id'],
     $_SESSION['travel_date'],
     $_SESSION['pickup_stop_id'],
     $_SESSION['dropoff_stop_id']
