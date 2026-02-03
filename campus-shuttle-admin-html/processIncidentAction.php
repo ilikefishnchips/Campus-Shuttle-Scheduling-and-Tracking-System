@@ -22,6 +22,24 @@ $now = date('Y-m-d H:i:s');
 
 try {
     if($action == 'approve') {
+        // Get incident details with route information
+        $incident_sql = "
+            SELECT ir.*, ss.Route_ID, r.Route_Name 
+            FROM incident_reports ir
+            LEFT JOIN shuttle_schedule ss ON ir.Schedule_ID = ss.Schedule_ID
+            LEFT JOIN route r ON ss.Route_ID = r.Route_ID
+            WHERE ir.Incident_ID = ?
+        ";
+        
+        $incident_stmt = $conn->prepare($incident_sql);
+        $incident_stmt->bind_param("i", $incident_id);
+        $incident_stmt->execute();
+        $incident = $incident_stmt->get_result()->fetch_assoc();
+        
+        if (!$incident) {
+            die(json_encode(['success' => false, 'message' => 'Incident not found']));
+        }
+        
         // Approve incident and send to transport coordinator
         $sql = "UPDATE incident_reports 
                 SET admin_status = 'Approved', 
@@ -35,13 +53,6 @@ try {
         $stmt->bind_param("sisi", $notes, $admin_id, $now, $incident_id);
         
         if($stmt->execute()) {
-            // Get incident details for notification
-            $incident_sql = "SELECT * FROM incident_reports WHERE Incident_ID = ?";
-            $incident_stmt = $conn->prepare($incident_sql);
-            $incident_stmt->bind_param("i", $incident_id);
-            $incident_stmt->execute();
-            $incident = $incident_stmt->get_result()->fetch_assoc();
-            
             // Create notification for transport coordinators
             $coordinator_sql = "
                 SELECT u.User_ID 
@@ -54,21 +65,36 @@ try {
             $coordinators = $conn->query($coordinator_sql);
             
             while($coordinator = $coordinators->fetch_assoc()) {
-                $notification_sql = "
-                    INSERT INTO notifications (User_ID, Title, Message, Type, Priority, Related_Route_ID)
-                    VALUES (?, 'New Incident Requires Attention', 
-                            CONCAT('An incident (ID: #', ?, ') has been approved by admin and requires your attention. Type: ', ?), 
-                            'Alert', 'High', ?)
-                ";
+                $route_id = $incident['Route_ID'] ?? null;
                 
-                $notification_stmt = $conn->prepare($notification_sql);
-                $route_id = $incident['Route_ID'] ?? 0;
-                $notification_stmt->bind_param("iisi", 
-                    $coordinator['User_ID'], 
-                    $incident_id, 
-                    $incident['Incident_Type'],
-                    $route_id
-                );
+                if ($route_id) {
+                    $notification_sql = "
+                        INSERT INTO notifications (User_ID, Title, Message, Type, Priority, Related_Route_ID)
+                        VALUES (?, 'New Incident Requires Attention', 
+                                CONCAT('An incident (ID: #', ?, ') has been approved by admin and requires your attention. Type: ', ?), 
+                                'Alert', 'High', ?)
+                    ";
+                    $notification_stmt = $conn->prepare($notification_sql);
+                    $notification_stmt->bind_param("iisi", 
+                        $coordinator['User_ID'], 
+                        $incident_id, 
+                        $incident['Incident_Type'],
+                        $route_id
+                    );
+                } else {
+                    $notification_sql = "
+                        INSERT INTO notifications (User_ID, Title, Message, Type, Priority)
+                        VALUES (?, 'New Incident Requires Attention', 
+                                CONCAT('An incident (ID: #', ?, ') has been approved by admin and requires your attention. Type: ', ?), 
+                                'Alert', 'High')
+                    ";
+                    $notification_stmt = $conn->prepare($notification_sql);
+                    $notification_stmt->bind_param("iis", 
+                        $coordinator['User_ID'], 
+                        $incident_id, 
+                        $incident['Incident_Type']
+                    );
+                }
                 $notification_stmt->execute();
             }
             
