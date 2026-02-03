@@ -1,7 +1,7 @@
 <?php
 session_start();
 // Define base path
-define('BASE_URL', '/Campus-Shuttle-Scheduling-and-Tracking-System/');
+define('BASE_URL', '/Campus-Shuttle-Scheduling-and-Tracking-System-/');
 
 // Redirect if already logged in as admin
 if(isset($_SESSION['user_id']) && $_SESSION['role'] == 'Admin') {
@@ -15,7 +15,7 @@ if(isset($_SESSION['user_id']) && $_SESSION['role'] == 'Admin') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Login</title>
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>css/admin/style.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/css/admin/style.css">
     <style>
         .server-error {
             text-align: center;
