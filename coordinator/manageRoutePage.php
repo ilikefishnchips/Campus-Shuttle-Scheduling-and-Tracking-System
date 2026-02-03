@@ -186,8 +186,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $time_stmt = $conn->prepare($time_sql);
                             
                             foreach ($departure_times as $time) {
-                                if (!empty(trim($time))) {
-                                    $time_stmt->bind_param("is", $route_id, trim($time));
+                                $trimmed_time = trim($time);  // 先trim并保存到变量
+                                if (!empty($trimmed_time)) {  // 使用变量检查
+                                    $time_stmt->bind_param("is", $route_id, $trimmed_time);  // 传递变量
                                     $time_stmt->execute();
                                 }
                             }
