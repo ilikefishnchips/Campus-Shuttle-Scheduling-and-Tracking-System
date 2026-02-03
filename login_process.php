@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             } elseif ($_SESSION['role'] == 'Driver') {
                 header('Location: driver/dashboard.php');
             } elseif ($_SESSION['role'] == 'Transport Coordinator') {
-                header('Location: coordinator/dashboard.php');
+                header('Location: coordinator/controlPanel.php');
             } else {
                 header('Location: index.php');
             }
