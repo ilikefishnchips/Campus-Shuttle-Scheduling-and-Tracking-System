@@ -64,6 +64,9 @@ $vehicle_status = $conn->query("
 <html>
 <head>
     <title>Coordinator Dashboard</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         * {
             margin: 0;
@@ -77,19 +80,48 @@ $vehicle_status = $conn->query("
         }
         
         .navbar {
-            background: #9C27B0;
-            color: white;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             padding: 0 20px;
+            height: 70px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        
+        .navbar-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            height: 70px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            height: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
         }
         
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
+        .navbar-logo {
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo-icon {
+            height: 40px;
+            width: auto;
+        }
+        
+        .admin-profile {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .profile-pic {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #f0f0f0;
         }
         
         .user-info {
@@ -99,30 +131,33 @@ $vehicle_status = $conn->query("
         }
         
         .user-badge {
-            background: rgba(255,255,255,0.2);
+            background: #4CAF50;
+            color: white;
             padding: 8px 15px;
             border-radius: 20px;
             font-size: 14px;
+            font-weight: 600;
         }
         
         .logout-btn {
-            background: white;
-            color: #9C27B0;
+            background: #F44336;
+            color: white;
             border: none;
             padding: 8px 20px;
             border-radius: 5px;
             cursor: pointer;
             font-weight: 600;
+            transition: background 0.3s;
         }
         
         .logout-btn:hover {
-            background: #F3E5F5;
+            background: #d32f2f;
         }
         
         .dashboard-container {
             padding: 30px;
-            max-width: 1400px;
-            margin: 0 auto;
+            max-width: 1200px;
+            margin: 100px auto 30px;
         }
         
         .welcome-section {
@@ -146,11 +181,12 @@ $vehicle_status = $conn->query("
             border-radius: 20px;
             font-size: 14px;
             margin-bottom: 20px;
+            font-weight: 600;
         }
         
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-bottom: 40px;
         }
@@ -162,10 +198,12 @@ $vehicle_status = $conn->query("
             box-shadow: 0 5px 15px rgba(0,0,0,0.05);
             text-align: center;
             transition: transform 0.3s;
+            border-top: 4px solid #9C27B0;
         }
         
         .stat-card:hover {
             transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
         }
         
         .stat-number {
@@ -178,13 +216,14 @@ $vehicle_status = $conn->query("
         .stat-label {
             color: #666;
             font-size: 14px;
+            margin-bottom: 5px;
         }
         
         .dashboard-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 30px;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
         }
         
         .section-card {
@@ -192,6 +231,12 @@ $vehicle_status = $conn->query("
             padding: 25px;
             border-radius: 10px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: transform 0.3s;
+        }
+        
+        .section-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
         }
         
         .section-title {
@@ -210,6 +255,11 @@ $vehicle_status = $conn->query("
             color: #9C27B0;
             text-decoration: none;
             font-weight: 600;
+            transition: color 0.3s;
+        }
+        
+        .view-all:hover {
+            color: #7B1FA2;
         }
         
         .incident-list, .schedule-list {
@@ -222,11 +272,12 @@ $vehicle_status = $conn->query("
             border-radius: 8px;
             margin-bottom: 10px;
             transition: all 0.3s;
+            background: #f8f9fa;
         }
         
         .incident-item:hover, .schedule-item:hover {
             border-color: #9C27B0;
-            background: #f8f9fa;
+            background: white;
         }
         
         .incident-header, .schedule-header {
@@ -242,7 +293,7 @@ $vehicle_status = $conn->query("
         }
         
         .priority-badge {
-            padding: 3px 10px;
+            padding: 4px 12px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
@@ -267,6 +318,7 @@ $vehicle_status = $conn->query("
             font-size: 14px;
             color: #666;
             margin-bottom: 10px;
+            line-height: 1.5;
         }
         
         .incident-meta {
@@ -279,6 +331,7 @@ $vehicle_status = $conn->query("
         .vehicle-table {
             width: 100%;
             border-collapse: collapse;
+            margin-top: 10px;
         }
         
         .vehicle-table th {
@@ -288,11 +341,13 @@ $vehicle_status = $conn->query("
             font-weight: 600;
             color: #333;
             border-bottom: 2px solid #e9ecef;
+            font-size: 14px;
         }
         
         .vehicle-table td {
             padding: 12px;
             border-bottom: 1px solid #e9ecef;
+            font-size: 14px;
         }
         
         .vehicle-table tr:hover {
@@ -304,6 +359,7 @@ $vehicle_status = $conn->query("
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
+            display: inline-block;
         }
         
         .status-active {
@@ -334,35 +390,41 @@ $vehicle_status = $conn->query("
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
-            margin-top: 30px;
+            margin-top: 20px;
         }
         
         .action-btn {
             background: #9C27B0;
             color: white;
             border: none;
-            padding: 15px;
+            padding: 12px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             text-align: center;
             transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
         
         .action-btn:hover {
             background: #7B1FA2;
             transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(155, 39, 176, 0.3);
         }
         
         .action-btn.secondary {
-            background: #f8f9fa;
-            color: #333;
+            background: white;
+            color: #9C27B0;
             border: 2px solid #9C27B0;
         }
         
         .action-btn.secondary:hover {
-            background: #F3E5F5;
+            background: #9C27B0;
+            color: white;
         }
         
         .no-data {
@@ -370,22 +432,141 @@ $vehicle_status = $conn->query("
             color: #999;
             padding: 30px;
             font-style: italic;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #dee2e6;
+        }
+        
+        .system-health {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            margin-top: 30px;
+        }
+        
+        .system-health h3 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #9C27B0;
+        }
+        
+        .progress-item {
+            margin-bottom: 20px;
+        }
+        
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .progress-bar {
+            height: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 5px;
+        }
+        
+        .progress-rate-92 { width: 92%; background: #4CAF50; }
+        .progress-rate-85 { width: 85%; background: #2196F3; }
+        .progress-rate-88 { width: 88%; background: #9C27B0; }
+        
+        .quick-links {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            margin-top: 30px;
+        }
+        
+        .quick-links h3 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #9C27B0;
+        }
+        
+        .links-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .link-item {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            color: #495057;
+            text-decoration: none;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .link-item:hover {
+            background: #9C27B0;
+            color: white;
+            border-color: #9C27B0;
+        }
+        
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
         }
         
         @media (max-width: 768px) {
             .dashboard-container {
-                padding: 15px;
-            }
-            
-            .dashboard-grid {
-                grid-template-columns: 1fr;
+                padding: 20px;
+                margin: 80px auto 20px;
             }
             
             .navbar {
+                padding: 10px;
+            }
+            
+            .admin-profile {
+                gap: 10px;
+            }
+            
+            .user-badge {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+            
+            .logout-btn {
+                padding: 6px 15px;
+                font-size: 14px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .admin-profile {
                 flex-direction: column;
-                height: auto;
-                padding: 15px;
-                gap: 15px;
+                align-items: flex-end;
+                gap: 5px;
             }
         }
     </style>
@@ -393,12 +574,19 @@ $vehicle_status = $conn->query("
 <body>
     <!-- Navigation Bar -->
     <nav class="navbar">
-        <div class="logo">🚌 Campus Shuttle - Coordinator Panel</div>
-        <div class="user-info">
-            <div class="user-badge">
-                <?php echo $_SESSION['username']; ?> (Coordinator)
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <img src="../assets/mmuShuttleLogo2.png" alt="Logo" class="logo-icon">
+            </div>            
+            <div class="admin-profile">
+                <img src="../assets/mmuShuttleLogo2.png" alt="Coordinator" class="profile-pic">
+                <div class="user-badge">
+                    <?php echo $_SESSION['username']; ?> 
+                </div>
+                <div class="profile-menu">
+                    <button class="logout-btn" onclick="window.location.href='../logout.php'">Logout</button>
+                </div>
             </div>
-            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </nav>
     
@@ -406,9 +594,12 @@ $vehicle_status = $conn->query("
     <div class="dashboard-container">
         <!-- Welcome Section -->
         <div class="welcome-section">
-            <span class="role-badge">TRANSPORT COORDINATOR PANEL</span>
+            <span class="role-badge">COORDINATOR PANEL</span>
             <h1>Welcome, <?php echo $coordinator['Full_Name']; ?>!</h1>
             <p>Monitor campus shuttle operations, manage schedules, and handle incidents.</p>
+            <p style="color: #666; font-size: 14px; margin-top: 10px;">
+                Last Update: <?php echo date('Y-m-d H:i:s'); ?>
+            </p>
         </div>
         
         <!-- Statistics Cards -->
@@ -445,8 +636,8 @@ $vehicle_status = $conn->query("
                 <!-- Active Incidents -->
                 <div class="section-card">
                     <h3 class="section-title">
-                        🚨 Active Incidents
-                        <a href="#" class="view-all">View All →</a>
+                        Active Incidents
+                        <a href="#" class="view-all">View All</a>
                     </h3>
                     <?php if(count($recent_incidents) > 0): ?>
                         <ul class="incident-list">
@@ -479,8 +670,8 @@ $vehicle_status = $conn->query("
                 <!-- Upcoming Schedules -->
                 <div class="section-card">
                     <h3 class="section-title">
-                        📅 Upcoming Schedules
-                        <a href="#" class="view-all">View All →</a>
+                        Upcoming Schedules
+                        <a href="#" class="view-all">View All</a>
                     </h3>
                     <?php if(count($upcoming_schedules) > 0): ?>
                         <ul class="schedule-list">
@@ -509,8 +700,8 @@ $vehicle_status = $conn->query("
             <div class="right-column">
                 <div class="section-card">
                     <h3 class="section-title">
-                        🚙 Vehicle Fleet Status
-                        <a href="#" class="view-all">Manage Vehicles →</a>
+                        Vehicle Fleet Status
+                        <a href="#" class="view-all">Manage Vehicles</a>
                     </h3>
                     
                     <table class="vehicle-table">
@@ -545,56 +736,68 @@ $vehicle_status = $conn->query("
                 
                 <!-- Quick Actions -->
                 <div class="section-card">
-                    <h3 class="section-title">⚡ Quick Actions</h3>
+                    <h3 class="section-title">Quick Actions</h3>
                     <div class="quick-actions">
                         <button class="action-btn" onclick="window.location.href='../coordinator/createSchedule.php'">
                             📅 Create Schedule
                         </button>
-                        <button class="action-btn secondary" onclick="window.location.href='../coordinator/manageRoute.php'">
+                        <button class="action-btn secondary" onclick="window.location.href='manageRoutePage.php'">
                             🗺️ Manage Routes
                         </button>
-                        <button class="action-btn secondary" onclick="window.location.href='../coordinator/assignDriver.php'">
+                        <button class="action-btn secondary" onclick="window.location.href='/assignDriver.php'">
                             👨‍✈️ Assign Driver
                         </button>
-                        <button class="action-btn secondary" onclick="window.location.href='../coordinator/reports.php'">
+                        <button class="action-btn secondary" onclick="window.location.href='/reports.php'">
                             📊 Generate Report
                         </button>
                     </div>
                 </div>
                 
                 <!-- System Health -->
-                <div class="section-card">
-                    <h3 class="section-title">📈 System Health</h3>
-                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                        <div style="margin-bottom: 15px;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                                <span>Shuttle On-Time Rate</span>
-                                <span style="color: #4CAF50; font-weight: 600;">92%</span>
-                            </div>
-                            <div style="height: 10px; background: #e9ecef; border-radius: 5px; overflow: hidden;">
-                                <div style="width: 92%; height: 100%; background: #4CAF50;"></div>
-                            </div>
+                <div class="system-health">
+                    <h3>System Health</h3>
+                    <div class="progress-item">
+                        <div class="progress-label">
+                            <span>Shuttle On-Time Rate</span>
+                            <span style="color: #4CAF50; font-weight: 600;">92%</span>
                         </div>
-                        
-                        <div style="margin-bottom: 15px;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                                <span>Vehicle Availability</span>
-                                <span style="color: #4CAF50; font-weight: 600;">85%</span>
-                            </div>
-                            <div style="height: 10px; background: #e9ecef; border-radius: 5px; overflow: hidden;">
-                                <div style="width: 85%; height: 100%; background: #4CAF50;"></div>
-                            </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-rate-92"></div>
                         </div>
-                        
-                        <div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                                <span>Passenger Satisfaction</span>
-                                <span style="color: #4CAF50; font-weight: 600;">88%</span>
-                            </div>
-                            <div style="height: 10px; background: #e9ecef; border-radius: 5px; overflow: hidden;">
-                                <div style="width: 88%; height: 100%; background: #4CAF50;"></div>
-                            </div>
+                    </div>
+                    
+                    <div class="progress-item">
+                        <div class="progress-label">
+                            <span>Vehicle Availability</span>
+                            <span style="color: #2196F3; font-weight: 600;">85%</span>
                         </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-rate-85"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-item">
+                        <div class="progress-label">
+                            <span>Passenger Satisfaction</span>
+                            <span style="color: #9C27B0; font-weight: 600;">88%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-rate-88"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Links -->
+                <div class="quick-links">
+                    <h3>Quick Access Links</h3>
+                    <div class="links-list">
+                        <a href="../coordinator/createSchedule.php" class="link-item">Create Schedule</a>
+                        <a href="manageRoutePage.php" class="link-item">Manage Routes</a>
+                        <a href="/assignDriver.php" class="link-item">Assign Driver</a>
+                        <a href="/reports.php" class="link-item">Generate Report</a>
+                        <a href="incident_management.php" class="link-item">Incident Reports</a>
+                        <a href="vehicle_management.php" class="link-item">Vehicle Management</a>
+                        <a href="schedule_calendar.php" class="link-item">Schedule Calendar</a>
                     </div>
                 </div>
             </div>
@@ -608,11 +811,50 @@ $vehicle_status = $conn->query("
             }
         }
         
-        // Auto-refresh dashboard every 60 seconds
-        setInterval(function() {
-            console.log('Auto-refreshing coordinator dashboard...');
-            // In real app, you would fetch updates via AJAX
-        }, 60000);
+        // Auto-update time
+        document.addEventListener('DOMContentLoaded', function() {
+            function updateTime() {
+                const timeElement = document.querySelector('.welcome-section p:nth-child(4)');
+                if(timeElement) {
+                    const now = new Date();
+                    timeElement.textContent = 'Last Update: ' + now.toLocaleString();
+                }
+            }
+            
+            // Update every minute
+            setInterval(updateTime, 60000);
+            
+            // Add hover effects
+            const statCards = document.querySelectorAll('.stat-card');
+            const actionCards = document.querySelectorAll('.section-card');
+            
+            statCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px)';
+                    this.style.boxShadow = '0 8px 20px rgba(0,0,0,0.1)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = '0 5px 15px rgba(0,0,0,0.05)';
+                });
+            });
+            
+            actionCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-3px)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                });
+            });
+            
+            // Auto-refresh dashboard every 5 minutes
+            setInterval(function() {
+                location.reload();
+            }, 300000);
+        });
     </script>
 </body>
 </html>

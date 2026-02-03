@@ -3,8 +3,8 @@ session_start();
 require_once '../includes/config.php';
 
 // Check if user is logged in as Admin
-if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Admin') {
-    header('Location: ../index.php');
+if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Transport Coordinator') {
+    header('Location: ../coordinator_login.php');
     exit();
 }
 
@@ -14,6 +14,7 @@ $message_type = '';
 $routes = [];
 $route_details = null;
 $route_stops = [];
+$route_times = [];
 $edit_mode = false;
 
 // Handle form actions
@@ -27,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $end_location = trim($_POST['end_location']);
                 $estimated_duration = intval($_POST['estimated_duration']);
                 $status = $_POST['status'];
+                $departure_times = isset($_POST['departure_time']) ? $_POST['departure_time'] : [];
                 
                 // Check if route name already exists
                 $check_sql = "SELECT Route_ID FROM route WHERE Route_Name = ?";
@@ -50,6 +52,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $route_stmt->bind_param("sssis", $route_name, $start_location, $end_location, $estimated_duration, $status);
                         $route_stmt->execute();
                         $route_id = $conn->insert_id;
+                        
+                        // Insert departure times if provided
+                        if (!empty($departure_times) && is_array($departure_times)) {
+                            $time_sql = "INSERT INTO route_time (Route_ID, Departure_Time) VALUES (?, ?)";
+                            $time_stmt = $conn->prepare($time_sql);
+                            
+                            foreach ($departure_times as $time) {
+                                if (!empty(trim($time))) {
+                                    $trimmed_time = trim($time);
+                                    $time_stmt->bind_param("is", $route_id, $trimmed_time);
+                                    $time_stmt->execute();
+                                }
+                            }
+                        }
                         
                         // Insert route stops if provided
                         if (isset($_POST['stop_name']) && is_array($_POST['stop_name'])) {
@@ -111,6 +127,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $stops_stmt->bind_param("i", $route_id);
                 $stops_stmt->execute();
                 $route_stops = $stops_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                
+                // Get departure times
+                $times_sql = "SELECT * FROM route_time WHERE Route_ID = ? ORDER BY Departure_Time";
+                $times_stmt = $conn->prepare($times_sql);
+                $times_stmt->bind_param("i", $route_id);
+                $times_stmt->execute();
+                $route_times = $times_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                 break;
                 
             case 'update_route':
@@ -121,6 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $end_location = trim($_POST['end_location']);
                 $estimated_duration = intval($_POST['estimated_duration']);
                 $status = $_POST['status'];
+                $departure_times = isset($_POST['departure_time']) ? $_POST['departure_time'] : [];
                 
                 // Check if route name already exists (excluding current route)
                 $check_sql = "SELECT Route_ID FROM route WHERE Route_Name = ? AND Route_ID != ?";
@@ -149,6 +173,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $update_stmt->bind_param("sssisi", $route_name, $start_location, $end_location, 
                                                $estimated_duration, $status, $route_id);
                         $update_stmt->execute();
+                        
+                        // Delete existing departure times
+                        $delete_times_sql = "DELETE FROM route_time WHERE Route_ID = ?";
+                        $delete_times_stmt = $conn->prepare($delete_times_sql);
+                        $delete_times_stmt->bind_param("i", $route_id);
+                        $delete_times_stmt->execute();
+                        
+                        // Insert new departure times
+                        if (!empty($departure_times) && is_array($departure_times)) {
+                            $time_sql = "INSERT INTO route_time (Route_ID, Departure_Time) VALUES (?, ?)";
+                            $time_stmt = $conn->prepare($time_sql);
+                            
+                            foreach ($departure_times as $time) {
+                                if (!empty(trim($time))) {
+                                    $time_stmt->bind_param("is", $route_id, trim($time));
+                                    $time_stmt->execute();
+                                }
+                            }
+                        }
                         
                         // Delete existing stops
                         $delete_stops_sql = "DELETE FROM route_stops WHERE Route_ID = ?";
@@ -193,6 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $edit_mode = false;
                         $route_details = null;
                         $route_stops = [];
+                        $route_times = [];
                     } catch (Exception $e) {
                         $conn->rollback();
                         $message = "Error updating route: " . $e->getMessage();
@@ -221,6 +265,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     try {
                         // Start transaction
                         $conn->begin_transaction();
+                        
+                        // Delete route times first
+                        $delete_times_sql = "DELETE FROM route_time WHERE Route_ID = ?";
+                        $delete_times_stmt = $conn->prepare($delete_times_sql);
+                        $delete_times_stmt->bind_param("i", $route_id);
+                        $delete_times_stmt->execute();
                         
                         // Delete route stops first (due to foreign key constraint)
                         $delete_stops_sql = "DELETE FROM route_stops WHERE Route_ID = ?";
@@ -267,12 +317,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Get all routes with stop counts
+// Get all routes with stop counts and departure times
 $routes_sql = "SELECT r.*, 
                COUNT(rs.Stop_ID) as Stop_Count,
+               GROUP_CONCAT(rt.Departure_Time ORDER BY rt.Departure_Time) as Departure_Times,
                (SELECT COUNT(*) FROM shuttle_schedule s WHERE s.Route_ID = r.Route_ID AND s.Status IN ('Scheduled', 'In Progress')) as Active_Schedules
                FROM route r
                LEFT JOIN route_stops rs ON r.Route_ID = rs.Route_ID
+               LEFT JOIN route_time rt ON r.Route_ID = rt.Route_ID
                GROUP BY r.Route_ID
                ORDER BY r.Status DESC, r.Route_Name";
 $routes_result = $conn->query($routes_sql);
@@ -724,6 +776,17 @@ while ($row = $schedule_result->fetch_assoc()) {
             margin-bottom: 5px;
         }
         
+        .time-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #d4edda;
+            color: #155724;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        
         .no-data {
             text-align: center;
             color: #6c757d;
@@ -903,6 +966,17 @@ while ($row = $schedule_result->fetch_assoc()) {
             color: #333;
         }
         
+        .time-item {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .time-input {
+            width: 150px;
+        }
+        
         @media (max-width: 768px) {
             .manage-routes-container {
                 padding: 15px;
@@ -947,6 +1021,15 @@ while ($row = $schedule_result->fetch_assoc()) {
                 width: 100%;
                 text-align: left;
                 padding: 10px 15px;
+            }
+            
+            .time-item {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .time-input {
+                width: 100%;
             }
         }
     </style>
@@ -1001,8 +1084,8 @@ while ($row = $schedule_result->fetch_assoc()) {
             <?php if (!$edit_mode): ?>
                 <div class="instructions">
                     <i class="fas fa-info-circle"></i> 
-                    <strong>Instructions:</strong> Fill in the route details and add stops along the route. 
-                    The Estimated Time From Start should be in minutes from the starting point.
+                    <strong>Instructions:</strong> Fill in the route details, add departure times, and stops along the route. 
+                    Each route can have multiple departure times throughout the day.
                 </div>
             <?php endif; ?>
             
@@ -1051,6 +1134,62 @@ while ($row = $schedule_result->fetch_assoc()) {
                         <input type="number" id="estimated_duration" name="estimated_duration" class="form-control" 
                                value="<?php echo $edit_mode ? htmlspecialchars($route_details['Estimated_Duration_Minutes']) : '15'; ?>" 
                                min="1" max="300" required>
+                    </div>
+                </div>
+                
+                <!-- Departure Times Section -->
+                <div class="stops-container">
+                    <div class="stops-header">
+                        <h3 class="stops-title">Departure Times</h3>
+                        <button type="button" class="add-stop-btn" onclick="addDepartureTime()">
+                            <i class="fas fa-plus"></i> Add Departure Time
+                        </button>
+                    </div>
+                    
+                    <div class="stops-list" id="departureTimesList">
+                        <?php if ($edit_mode && !empty($route_times)): ?>
+                            <?php foreach ($route_times as $time): ?>
+                                <div class="stop-item">
+                                    <div>
+                                        <div class="stop-label">Departure Time</div>
+                                        <input type="time" name="departure_time[]" class="form-control" 
+                                               value="<?php echo htmlspecialchars($time['Departure_Time']); ?>" 
+                                               required>
+                                    </div>
+                                    <div>
+                                        <button type="button" class="remove-stop" onclick="removeDepartureTime(this)">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <!-- Default departure times -->
+                            <div class="stop-item">
+                                <div>
+                                    <div class="stop-label">Departure Time</div>
+                                    <input type="time" name="departure_time[]" class="form-control" 
+                                           value="08:00" required>
+                                </div>
+                                <div>
+                                    <button type="button" class="remove-stop" onclick="removeDepartureTime(this)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="stop-item">
+                                <div>
+                                    <div class="stop-label">Departure Time</div>
+                                    <input type="time" name="departure_time[]" class="form-control" 
+                                           value="10:00" required>
+                                </div>
+                                <div>
+                                    <button type="button" class="remove-stop" onclick="removeDepartureTime(this)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 
@@ -1142,6 +1281,7 @@ while ($row = $schedule_result->fetch_assoc()) {
                                 <th>Start → End</th>
                                 <th>Stops</th>
                                 <th>Duration</th>
+                                <th>Departure Times</th>
                                 <th>Schedules</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -1161,6 +1301,26 @@ while ($row = $schedule_result->fetch_assoc()) {
                                     </td>
                                     <td><?php echo $route['Stop_Count'] ?: '0'; ?></td>
                                     <td><?php echo $route['Estimated_Duration_Minutes']; ?> min</td>
+                                    <td>
+                                        <?php 
+                                        if (!empty($route['Departure_Times'])) {
+                                            $times = explode(',', $route['Departure_Times']);
+                                            $display_times = [];
+                                            foreach ($times as $time) {
+                                                $dt = new DateTime($time);
+                                                $display_times[] = $dt->format('H:i');
+                                            }
+                                            $unique_times = array_unique($display_times);
+                                            sort($unique_times);
+                                            
+                                            foreach ($unique_times as $time) {
+                                                echo '<span class="time-badge">' . $time . '</span>';
+                                            }
+                                        } else {
+                                            echo '<span style="color: #6c757d; font-style: italic;">No times set</span>';
+                                        }
+                                        ?>
+                                    </td>
                                     <td>
                                         <?php 
                                         $sched_count = isset($schedule_counts[$route['Route_ID']]) ? $schedule_counts[$route['Route_ID']] : 0;
@@ -1254,12 +1414,17 @@ while ($row = $schedule_result->fetch_assoc()) {
                             </div>
                         </div>
                         <div class="info-item">
-                            <div class="info-label">Average Duration</div>
+                            <div class="info-label">Total Departure Times</div>
                             <div class="info-value">
                                 <?php 
-                                $avg_duration = count($routes) > 0 ? 
-                                    array_sum(array_column($routes, 'Estimated_Duration_Minutes')) / count($routes) : 0;
-                                echo round($avg_duration, 1) . ' min';
+                                $total_times = 0;
+                                foreach ($routes as $route) {
+                                    if (!empty($route['Departure_Times'])) {
+                                        $times = explode(',', $route['Departure_Times']);
+                                        $total_times += count($times);
+                                    }
+                                }
+                                echo $total_times;
                                 ?>
                             </div>
                         </div>
@@ -1286,6 +1451,9 @@ while ($row = $schedule_result->fetch_assoc()) {
                     <button id="tabSchedules" class="tab-btn" onclick="switchTab('schedules')">
                         <i class="fas fa-calendar-alt"></i> Schedules
                     </button>
+                    <button id="tabTimes" class="tab-btn" onclick="switchTab('times')">
+                        <i class="fas fa-clock"></i> Departure Times
+                    </button>
                 </div>
             </div>
             
@@ -1306,12 +1474,54 @@ while ($row = $schedule_result->fetch_assoc()) {
                     <p style="margin-top: 15px;">Select the Schedules tab to view route schedules</p>
                 </div>
             </div>
+            
+            <!-- Times Content -->
+            <div id="timesContent" class="tab-content">
+                <div class="no-data" style="padding: 40px;">
+                    <i class="fas fa-clock fa-2x" style="color: #6c757d;"></i>
+                    <p style="margin-top: 15px;">Select the Departure Times tab to view departure times</p>
+                </div>
+            </div>
         </div>
     </div>
     
     <script>
         // Add new stop field
         let stopCounter = <?php echo $edit_mode && !empty($route_stops) ? count($route_stops) : 1; ?>;
+        
+        // Add new departure time field
+        function addDepartureTime() {
+            const timesList = document.getElementById('departureTimesList');
+            const timeItem = document.createElement('div');
+            timeItem.className = 'stop-item';
+            timeItem.innerHTML = `
+                <div>
+                    <div class="stop-label">Departure Time</div>
+                    <input type="time" name="departure_time[]" class="form-control" 
+                           value="12:00" required>
+                </div>
+                <div>
+                    <button type="button" class="remove-stop" onclick="removeDepartureTime(this)">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            timesList.appendChild(timeItem);
+        }
+        
+        // Remove departure time field
+        function removeDepartureTime(button) {
+            const timeItem = button.closest('.stop-item');
+            if (timeItem) {
+                // Only remove if there's more than one time
+                const allTimes = document.querySelectorAll('#departureTimesList .stop-item');
+                if (allTimes.length > 1) {
+                    timeItem.remove();
+                } else {
+                    alert('At least one departure time is required.');
+                }
+            }
+        }
         
         function addStop() {
             stopCounter++;
@@ -1374,7 +1584,7 @@ while ($row = $schedule_result->fetch_assoc()) {
                 return false;
             }
             
-            return confirm(`Are you sure you want to delete route "${routeName}" (ID: ${routeId})?\n\nThis action will also delete all associated stops and cannot be undone.`);
+            return confirm(`Are you sure you want to delete route "${routeName}" (ID: ${routeId})?\n\nThis action will also delete all associated stops and departure times and cannot be undone.`);
         }
         
         // Keep track of current route ID
@@ -1396,7 +1606,7 @@ while ($row = $schedule_result->fetch_assoc()) {
             switchTab('stops');
             
             // Fetch route details via AJAX
-            fetch(`get_route_stops.php?route_id=${routeId}`)
+            fetch(`get_route_details.php?route_id=${routeId}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
@@ -1430,6 +1640,10 @@ while ($row = $schedule_result->fetch_assoc()) {
                             <div class="summary-item">
                                 <div class="summary-label">Total Stops</div>
                                 <div class="summary-value">${data.stops.length}</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">Total Departure Times</div>
+                                <div class="summary-value">${data.departure_times.length}</div>
                             </div>
                             <div class="summary-item">
                                 <div class="summary-label">Duration</div>
@@ -1503,6 +1717,71 @@ while ($row = $schedule_result->fetch_assoc()) {
                         `;
                     }
                     
+                    // Update times content
+                    if (data.departure_times.length > 0) {
+                        let timesHTML = `
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="color: #495057; margin-bottom: 15px;">Departure Times for this Route</h4>
+                                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                        `;
+                        
+                        data.departure_times.forEach(time => {
+                            const timeStr = time.Departure_Time.substring(0, 5);
+                            timesHTML += `
+                                <div class="time-badge" style="font-size: 14px; padding: 8px 15px;">
+                                    <i class="fas fa-clock" style="margin-right: 5px;"></i>
+                                    ${timeStr}
+                                </div>
+                            `;
+                        });
+                        
+                        timesHTML += `
+                                </div>
+                            </div>
+                            <table class="stops-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time ID</th>
+                                        <th>Departure Time</th>
+                                        <th>24-Hour Format</th>
+                                        <th>12-Hour Format</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        `;
+                        
+                        data.departure_times.forEach(time => {
+                            const time24 = time.Departure_Time.substring(0, 5);
+                            const time12 = formatTimeTo12Hour(time.Departure_Time);
+                            
+                            timesHTML += `
+                                <tr>
+                                    <td>${time.Time_ID}</td>
+                                    <td>
+                                        <span class="time-badge">${time24}</span>
+                                    </td>
+                                    <td>${time24}</td>
+                                    <td>${time12}</td>
+                                </tr>
+                            `;
+                        });
+                        
+                        timesHTML += `
+                                </tbody>
+                            </table>
+                        `;
+                        
+                        document.getElementById('timesContent').innerHTML = timesHTML;
+                    } else {
+                        document.getElementById('timesContent').innerHTML = `
+                            <div style="text-align: center; padding: 40px; color: #6c757d;">
+                                <i class="fas fa-clock fa-2x"></i>
+                                <p style="margin-top: 15px;">No departure times found for this route.</p>
+                                <p style="font-size: 14px; margin-top: 10px;">Add departure times using the Edit button.</p>
+                            </div>
+                        `;
+                    }
+                    
                     // Show modal
                     document.getElementById('detailsModal').style.display = 'block';
                 })
@@ -1515,6 +1794,16 @@ while ($row = $schedule_result->fetch_assoc()) {
                         </div>
                     `;
                 });
+        }
+        
+        // Helper function to format time to 12-hour format
+        function formatTimeTo12Hour(time24) {
+            const [hours, minutes] = time24.split(':');
+            let hour = parseInt(hours);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            hour = hour % 12;
+            hour = hour ? hour : 12; // the hour '0' should be '12'
+            return `${hour}:${minutes} ${ampm}`;
         }
         
         // Tab switching function
@@ -1672,6 +1961,7 @@ while ($row = $schedule_result->fetch_assoc()) {
             document.getElementById('modalRouteSummary').innerHTML = '';
             document.getElementById('stopsContent').innerHTML = '';
             document.getElementById('schedulesContent').innerHTML = '';
+            document.getElementById('timesContent').innerHTML = '';
             currentRouteId = null;
         }
         
@@ -1687,9 +1977,41 @@ while ($row = $schedule_result->fetch_assoc()) {
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('routeForm');
             form.addEventListener('submit', function(e) {
+                // Validate departure times
+                const departureTimes = document.querySelectorAll('input[name="departure_time[]"]');
+                let hasError = false;
+                
+                // Check for duplicate times
+                const times = [];
+                departureTimes.forEach(input => {
+                    const time = input.value.trim();
+                    if (times.includes(time)) {
+                        alert('Duplicate departure time detected! Each departure time must be unique.');
+                        input.focus();
+                        hasError = true;
+                    } else if (time) {
+                        times.push(time);
+                    }
+                });
+                
+                // Check for empty times
+                departureTimes.forEach(input => {
+                    if (!input.value.trim()) {
+                        alert('Please fill in all departure times.');
+                        input.focus();
+                        hasError = true;
+                    }
+                });
+                
+                // Sort times and validate order
+                const sortedTimes = [...times].sort();
+                if (JSON.stringify(times) !== JSON.stringify(sortedTimes)) {
+                    alert('Departure times should be in chronological order. Please arrange them from earliest to latest.');
+                    hasError = true;
+                }
+                
                 // Validate stop inputs
                 const stopNames = document.querySelectorAll('input[name="stop_name[]"]');
-                let hasError = false;
                 
                 // Check for duplicate stop orders
                 const stopOrders = [];
