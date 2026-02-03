@@ -741,7 +741,7 @@ $vehicle_status = $conn->query("
                         <button class="action-btn" onclick="window.location.href='manageRoutePage.php'">
                             🗺️ Manage Routes
                         </button>
-                        <button class="action-btn secondary" onclick="window.location.href='/assignDriver.php'">
+                        <button class="action-btn secondary" onclick="window.location.href='assignDriver.php'">
                             👨‍✈️ Assign Driver
                         </button>
                         <button class="action-btn secondary" onclick="window.location.href='/reports.php'">
