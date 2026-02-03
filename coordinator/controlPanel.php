@@ -738,10 +738,7 @@ $vehicle_status = $conn->query("
                 <div class="section-card">
                     <h3 class="section-title">Quick Actions</h3>
                     <div class="quick-actions">
-                        <button class="action-btn" onclick="window.location.href='../coordinator/createSchedule.php'">
-                            📅 Create Schedule
-                        </button>
-                        <button class="action-btn secondary" onclick="window.location.href='manageRoutePage.php'">
+                        <button class="action-btn" onclick="window.location.href='manageRoutePage.php'">
                             🗺️ Manage Routes
                         </button>
                         <button class="action-btn secondary" onclick="window.location.href='/assignDriver.php'">

@@ -1059,7 +1059,7 @@ while ($row = $schedule_result->fetch_assoc()) {
         <!-- Page Header -->
         <div class="page-header">
             <h1 class="page-title"><?php echo $edit_mode ? 'Edit Route' : 'Route Management'; ?></h1>
-            <button class="back-btn" onclick="window.location.href='adminDashboard.php'">← Back to Dashboard</button>
+            <button class="back-btn" onclick="window.location.href='controlPanel.php'">← Back to Dashboard</button>
         </div>
         
         <!-- Messages -->
