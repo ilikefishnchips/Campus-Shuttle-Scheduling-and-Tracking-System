@@ -783,20 +783,6 @@ $vehicle_status = $conn->query("
                         </div>
                     </div>
                 </div>
-                
-                <!-- Quick Links -->
-                <div class="quick-links">
-                    <h3>Quick Access Links</h3>
-                    <div class="links-list">
-                        <a href="../coordinator/createSchedule.php" class="link-item">Create Schedule</a>
-                        <a href="manageRoutePage.php" class="link-item">Manage Routes</a>
-                        <a href="/assignDriver.php" class="link-item">Assign Driver</a>
-                        <a href="/reports.php" class="link-item">Generate Report</a>
-                        <a href="incident_management.php" class="link-item">Incident Reports</a>
-                        <a href="vehicle_management.php" class="link-item">Vehicle Management</a>
-                        <a href="schedule_calendar.php" class="link-item">Schedule Calendar</a>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
