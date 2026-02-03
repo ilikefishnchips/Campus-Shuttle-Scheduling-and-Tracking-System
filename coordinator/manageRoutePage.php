@@ -59,8 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $time_stmt = $conn->prepare($time_sql);
                             
                             foreach ($departure_times as $time) {
-                                if (!empty(trim($time))) {
-                                    $trimmed_time = trim($time);
+                                $trimmed_time = trim($time);
+                                if (!empty($trimmed_time)) {
                                     $time_stmt->bind_param("is", $route_id, $trimmed_time);
                                     $time_stmt->execute();
                                 }
@@ -88,11 +88,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             
                             for ($i = 0; $i < count($stop_names); $i++) {
                                 $stop_name = trim($stop_names[$i]);
-                                $stop_order = intval($stop_orders[$i]);
-                                $estimated_time = intval($estimated_times[$i]);
+                                $stop_order_val = intval($stop_orders[$i]);
+                                $estimated_time_val = intval($estimated_times[$i]);
                                 
                                 if (!empty($stop_name)) {
-                                    $stop_stmt->bind_param("isii", $route_id, $stop_name, $stop_order, $estimated_time);
+                                    $stop_stmt->bind_param("isii", $route_id, $stop_name, $stop_order_val, $estimated_time_val);
                                     $stop_stmt->execute();
                                 }
                             }
@@ -186,9 +186,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $time_stmt = $conn->prepare($time_sql);
                             
                             foreach ($departure_times as $time) {
-                                $trimmed_time = trim($time);  // 先trim并保存到变量
-                                if (!empty($trimmed_time)) {  // 使用变量检查
-                                    $time_stmt->bind_param("is", $route_id, $trimmed_time);  // 传递变量
+                                $trimmed_time = trim($time);
+                                if (!empty($trimmed_time)) {
+                                    $time_stmt->bind_param("is", $route_id, $trimmed_time);
                                     $time_stmt->execute();
                                 }
                             }
@@ -221,11 +221,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             
                             for ($i = 0; $i < count($stop_names); $i++) {
                                 $stop_name = trim($stop_names[$i]);
-                                $stop_order = intval($stop_orders[$i]);
-                                $estimated_time = intval($estimated_times[$i]);
+                                $stop_order_val = intval($stop_orders[$i]);
+                                $estimated_time_val = intval($estimated_times[$i]);
                                 
                                 if (!empty($stop_name)) {
-                                    $stop_stmt->bind_param("isii", $route_id, $stop_name, $stop_order, $estimated_time);
+                                    $stop_stmt->bind_param("isii", $route_id, $stop_name, $stop_order_val, $estimated_time_val);
                                     $stop_stmt->execute();
                                 }
                             }
@@ -354,7 +354,7 @@ while ($row = $schedule_result->fetch_assoc()) {
     <style>
         .manage-routes-container {
             padding: 30px;
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 80px auto 30px;
         }
         
@@ -511,15 +511,6 @@ while ($row = $schedule_result->fetch_assoc()) {
             background: #e0a800;
         }
         
-        .btn-info {
-            background: #17a2b8;
-            color: white;
-        }
-        
-        .btn-info:hover {
-            background: #138496;
-        }
-        
         .btn-group {
             display: flex;
             gap: 10px;
@@ -528,19 +519,21 @@ while ($row = $schedule_result->fetch_assoc()) {
         
         .table-container {
             overflow-x: auto;
+            margin-bottom: 20px;
         }
         
         .routes-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
+            font-size: 13px;
         }
         
         .routes-table th,
         .routes-table td {
-            padding: 15px;
+            padding: 12px 10px;
             text-align: left;
             border-bottom: 1px solid #eee;
+            vertical-align: top;
         }
         
         .routes-table th {
@@ -556,20 +549,20 @@ while ($row = $schedule_result->fetch_assoc()) {
         
         .route-actions {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
         }
         
         .action-btn {
-            padding: 6px 12px;
+            padding: 6px 10px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 11px;
             cursor: pointer;
             border: none;
             transition: all 0.3s;
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
             white-space: nowrap;
         }
         
@@ -591,6 +584,12 @@ while ($row = $schedule_result->fetch_assoc()) {
             background: #c82333;
         }
         
+        .delete-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
         .activate-btn {
             background: #28a745;
             color: white;
@@ -609,20 +608,11 @@ while ($row = $schedule_result->fetch_assoc()) {
             background: #5a6268;
         }
         
-        .view-btn {
-            background: #17a2b8;
-            color: white;
-        }
-        
-        .view-btn:hover {
-            background: #138496;
-        }
-        
         .status-badge {
             display: inline-block;
-            padding: 5px 12px;
+            padding: 4px 10px;
             border-radius: 12px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
         }
         
@@ -632,26 +622,6 @@ while ($row = $schedule_result->fetch_assoc()) {
         }
         
         .status-inactive {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        .status-inprogress {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
-        .status-completed {
-            background: #e2e3e5;
-            color: #383d41;
-        }
-        
-        .status-cancelled {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        .status-delayed {
             background: #f8d7da;
             color: #721c24;
         }
@@ -759,11 +729,13 @@ while ($row = $schedule_result->fetch_assoc()) {
         .info-label {
             color: #666;
             margin-bottom: 5px;
+            font-size: 12px;
         }
         
         .info-value {
             font-weight: 500;
             color: #333;
+            font-size: 16px;
         }
         
         .schedule-badge {
@@ -772,9 +744,9 @@ while ($row = $schedule_result->fetch_assoc()) {
             background: #e3f2fd;
             color: #1976d2;
             border-radius: 10px;
-            font-size: 12px;
-            margin-right: 5px;
-            margin-bottom: 5px;
+            font-size: 11px;
+            margin-right: 3px;
+            margin-bottom: 3px;
         }
         
         .time-badge {
@@ -783,9 +755,9 @@ while ($row = $schedule_result->fetch_assoc()) {
             background: #d4edda;
             color: #155724;
             border-radius: 10px;
-            font-size: 12px;
-            margin-right: 5px;
-            margin-bottom: 5px;
+            font-size: 11px;
+            margin-right: 3px;
+            margin-bottom: 3px;
         }
         
         .no-data {
@@ -811,179 +783,60 @@ while ($row = $schedule_result->fetch_assoc()) {
             color: #0d47a1;
         }
         
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-        
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 25px;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 900px;
-            max-height: 80vh;
-            overflow-y: auto;
-            position: relative;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        }
-        
-        .modal-header {
+        .route-path {
             display: flex;
-            justify-content: space-between;
+            flex-wrap: wrap;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
+            gap: 5px;
+            margin-top: 5px;
         }
         
-        .modal-title {
-            color: #333;
-            font-size: 22px;
-            margin: 0;
+        .path-stop {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
         }
         
-        .close-modal {
-            background: none;
-            border: none;
-            font-size: 28px;
-            color: #aaa;
-            cursor: pointer;
-            line-height: 1;
-        }
-        
-        .close-modal:hover {
-            color: #333;
-        }
-        
-        /* Tab Styles */
-        .tabs-container {
-            margin-bottom: 20px;
-        }
-        
-        .tabs {
-            display: flex;
-            border-bottom: 2px solid #e9ecef;
-        }
-        
-        .tab-btn {
-            padding: 12px 24px;
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            transition: all 0.3s;
-            color: #666;
-            border-bottom: 3px solid transparent;
-        }
-        
-        .tab-btn.active {
-            color: #4CAF50;
-            border-bottom-color: #4CAF50;
-        }
-        
-        .tab-btn:hover:not(.active) {
-            color: #333;
-            background: #f8f9fa;
-        }
-        
-        .tab-content {
-            display: none;
-            padding: 20px 0;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        .stops-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        
-        .stops-table th,
-        .stops-table td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .stops-table th {
-            background: #f8f9fa;
-            color: #495057;
-            font-weight: 600;
-        }
-        
-        .stops-table tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .stop-order-badge {
-            display: inline-block;
-            width: 30px;
-            height: 30px;
-            line-height: 30px;
-            text-align: center;
+        .path-start {
             background: #4CAF50;
             color: white;
-            border-radius: 50%;
-            font-weight: bold;
         }
         
-        .route-summary {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
+        .path-middle {
+            background: #e3f2fd;
+            color: #1976d2;
         }
         
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
+        .path-end {
+            background: #f44336;
+            color: white;
         }
         
-        .summary-item {
-            font-size: 14px;
-        }
-        
-        .summary-label {
+        .path-arrow {
             color: #666;
-            font-size: 12px;
+            font-size: 10px;
         }
         
-        .summary-value {
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .time-item {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .time-input {
-            width: 150px;
-        }
-        
-        @media (max-width: 768px) {
+        @media (max-width: 1200px) {
             .manage-routes-container {
                 padding: 15px;
                 margin-top: 60px;
             }
             
+            .routes-table {
+                font-size: 12px;
+            }
+            
+            .routes-table th,
+            .routes-table td {
+                padding: 8px 5px;
+            }
+        }
+        
+        @media (max-width: 768px) {
             .form-row {
                 grid-template-columns: 1fr;
             }
@@ -993,12 +846,6 @@ while ($row = $schedule_result->fetch_assoc()) {
                 gap: 10px;
             }
             
-            .routes-table th,
-            .routes-table td {
-                padding: 10px 5px;
-                font-size: 12px;
-            }
-            
             .route-actions {
                 flex-direction: column;
             }
@@ -1006,31 +853,6 @@ while ($row = $schedule_result->fetch_assoc()) {
             .action-btn {
                 width: 100%;
                 justify-content: center;
-            }
-            
-            .modal-content {
-                width: 95%;
-                margin: 10% auto;
-                padding: 20px;
-            }
-            
-            .tabs {
-                flex-direction: column;
-            }
-            
-            .tab-btn {
-                width: 100%;
-                text-align: left;
-                padding: 10px 15px;
-            }
-            
-            .time-item {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .time-input {
-                width: 100%;
             }
         }
     </style>
@@ -1060,7 +882,7 @@ while ($row = $schedule_result->fetch_assoc()) {
         <!-- Page Header -->
         <div class="page-header">
             <h1 class="page-title"><?php echo $edit_mode ? 'Edit Route' : 'Route Management'; ?></h1>
-            <button class="back-btn" onclick="window.location.href='controlPanel.php'">← Back to Dashboard</button>
+            <button class="back-btn" onclick="window.location.href='adminDashboard.php'">← Back to Dashboard</button>
         </div>
         
         <!-- Messages -->
@@ -1277,15 +1099,14 @@ while ($row = $schedule_result->fetch_assoc()) {
                     <table class="routes-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>Route Name</th>
-                                <th>Start → End</th>
-                                <th>Stops</th>
-                                <th>Duration</th>
-                                <th>Departure Times</th>
-                                <th>Schedules</th>
-                                <th>Status</th>
-                                <th>Actions</th>
+                                <th style="width: 50px;">ID</th>
+                                <th style="width: 150px;">Route Name</th>
+                                <th style="width: 150px;">Start → End</th>
+                                <th style="min-width: 300px;">Route Path</th>
+                                <th style="width: 80px;">Duration</th>
+                                <th style="width: 120px;">Times</th>
+                                <th style="width: 80px;">Status</th>
+                                <th style="width: 150px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1296,12 +1117,62 @@ while ($row = $schedule_result->fetch_assoc()) {
                                         <strong><?php echo htmlspecialchars($route['Route_Name']); ?></strong>
                                     </td>
                                     <td>
-                                        <?php echo htmlspecialchars($route['Start_Location']); ?> 
-                                        → 
-                                        <?php echo htmlspecialchars($route['End_Location']); ?>
+                                        <div style="font-weight: 500; color: #4CAF50;">
+                                            <?php echo htmlspecialchars($route['Start_Location']); ?>
+                                        </div>
+                                        <div style="font-size: 10px; color: #666; text-align: center;">
+                                            <i class="fas fa-arrow-down"></i>
+                                        </div>
+                                        <div style="font-weight: 500; color: #f44336;">
+                                            <?php echo htmlspecialchars($route['End_Location']); ?>
+                                        </div>
                                     </td>
-                                    <td><?php echo $route['Stop_Count'] ?: '0'; ?></td>
-                                    <td><?php echo $route['Estimated_Duration_Minutes']; ?> min</td>
+                                    <td>
+                                        <?php 
+                                        // 获取停站点路径
+                                        $stop_sql = "SELECT Stop_Name FROM route_stops WHERE Route_ID = ? ORDER BY Stop_Order";
+                                        $stop_stmt = $conn->prepare($stop_sql);
+                                        $stop_stmt->bind_param("i", $route['Route_ID']);
+                                        $stop_stmt->execute();
+                                        $stop_result = $stop_stmt->get_result();
+                                        $stops = $stop_result->fetch_all(MYSQLI_ASSOC);
+                                        
+                                        if (!empty($stops)) {
+                                            echo '<div class="route-path">';
+                                            foreach ($stops as $index => $stop) {
+                                                $stop_name = htmlspecialchars($stop['Stop_Name']);
+                                                
+                                                // 确定样式
+                                                if ($index === 0) {
+                                                    echo '<span class="path-stop path-start" title="Start Point">';
+                                                    echo '<i class="fas fa-play-circle" style="margin-right: 3px;"></i>';
+                                                    echo $stop_name;
+                                                    echo '</span>';
+                                                } elseif ($index === count($stops) - 1) {
+                                                    echo '<span class="path-stop path-end" title="End Point">';
+                                                    echo '<i class="fas fa-flag-checkered" style="margin-right: 3px;"></i>';
+                                                    echo $stop_name;
+                                                    echo '</span>';
+                                                } else {
+                                                    echo '<span class="path-stop path-middle">';
+                                                    echo ($index + 1) . '. ' . $stop_name;
+                                                    echo '</span>';
+                                                }
+                                                
+                                                // 如果不是最后一个，添加箭头
+                                                if ($index < count($stops) - 1) {
+                                                    echo '<i class="fas fa-arrow-right path-arrow"></i>';
+                                                }
+                                            }
+                                            echo '</div>';
+                                        } else {
+                                            echo '<span style="color: #6c757d; font-style: italic;">No stops defined</span>';
+                                        }
+                                        ?>
+                                    </td>
+                                    <td>
+                                        <span style="font-weight: bold;"><?php echo $route['Estimated_Duration_Minutes']; ?></span> min
+                                    </td>
                                     <td>
                                         <?php 
                                         if (!empty($route['Departure_Times'])) {
@@ -1314,21 +1185,13 @@ while ($row = $schedule_result->fetch_assoc()) {
                                             $unique_times = array_unique($display_times);
                                             sort($unique_times);
                                             
+                                            echo '<div style="display: flex; flex-wrap: wrap; gap: 2px;">';
                                             foreach ($unique_times as $time) {
                                                 echo '<span class="time-badge">' . $time . '</span>';
                                             }
+                                            echo '</div>';
                                         } else {
-                                            echo '<span style="color: #6c757d; font-style: italic;">No times set</span>';
-                                        }
-                                        ?>
-                                    </td>
-                                    <td>
-                                        <?php 
-                                        $sched_count = isset($schedule_counts[$route['Route_ID']]) ? $schedule_counts[$route['Route_ID']] : 0;
-                                        if ($sched_count > 0) {
-                                            echo '<span class="schedule-badge">' . $sched_count . ' schedule' . ($sched_count != 1 ? 's' : '') . '</span>';
-                                        } else {
-                                            echo '<span style="color: #6c757d; font-style: italic;">No schedules</span>';
+                                            echo '<span style="color: #6c757d; font-style: italic;">No times</span>';
                                         }
                                         ?>
                                     </td>
@@ -1342,39 +1205,36 @@ while ($row = $schedule_result->fetch_assoc()) {
                                             <form method="POST" action="" style="display: inline;">
                                                 <input type="hidden" name="action" value="edit_route">
                                                 <input type="hidden" name="route_id" value="<?php echo $route['Route_ID']; ?>">
-                                                <button type="submit" class="action-btn edit-btn">
+                                                <button type="submit" class="action-btn edit-btn" title="Edit Route">
                                                     <i class="fas fa-edit"></i> Edit
                                                 </button>
                                             </form>
-                                            
-                                            <button type="button" class="action-btn view-btn" onclick="viewRouteDetails(<?php echo $route['Route_ID']; ?>)">
-                                                <i class="fas fa-eye"></i> View Details
-                                            </button>
                                             
                                             <?php if ($route['Status'] == 'Active'): ?>
                                                 <form method="POST" action="" style="display: inline;">
                                                     <input type="hidden" name="action" value="deactivate_route">
                                                     <input type="hidden" name="route_id" value="<?php echo $route['Route_ID']; ?>">
-                                                    <button type="submit" class="action-btn deactivate-btn">
-                                                        <i class="fas fa-pause"></i> Deactivate
+                                                    <button type="submit" class="action-btn deactivate-btn" title="Deactivate Route">
+                                                        <i class="fas fa-pause"></i> Off
                                                     </button>
                                                 </form>
                                             <?php else: ?>
                                                 <form method="POST" action="" style="display: inline;">
                                                     <input type="hidden" name="action" value="activate_route">
                                                     <input type="hidden" name="route_id" value="<?php echo $route['Route_ID']; ?>">
-                                                    <button type="submit" class="action-btn activate-btn">
-                                                        <i class="fas fa-play"></i> Activate
+                                                    <button type="submit" class="action-btn activate-btn" title="Activate Route">
+                                                        <i class="fas fa-play"></i> On
                                                     </button>
                                                 </form>
                                             <?php endif; ?>
                                             
                                             <form method="POST" action="" style="display: inline;" 
-                                                  onsubmit="return confirmDelete(<?php echo $route['Route_ID']; ?>, '<?php echo htmlspecialchars(addslashes($route['Route_Name'])); ?>', <?php echo $route['Active_Schedules']; ?>)">
+                                                onsubmit="return confirmDelete(<?php echo $route['Route_ID']; ?>, '<?php echo htmlspecialchars(addslashes($route['Route_Name'])); ?>', <?php echo $route['Active_Schedules']; ?>)">
                                                 <input type="hidden" name="action" value="delete_route">
                                                 <input type="hidden" name="route_id" value="<?php echo $route['Route_ID']; ?>">
-                                                <button type="submit" class="action-btn delete-btn" <?php echo $route['Active_Schedules'] > 0 ? 'disabled' : ''; ?>>
-                                                    <i class="fas fa-trash"></i> Delete
+                                                <button type="submit" class="action-btn delete-btn" <?php echo $route['Active_Schedules'] > 0 ? 'disabled' : ''; ?>
+                                                        title="<?php echo $route['Active_Schedules'] > 0 ? 'Cannot delete: Has active schedules' : 'Delete Route'; ?>">
+                                                    <i class="fas fa-trash"></i> Del
                                                 </button>
                                             </form>
                                         </div>
@@ -1386,7 +1246,7 @@ while ($row = $schedule_result->fetch_assoc()) {
                 </div>
                 
                 <!-- Route Statistics -->
-                <div class="route-info-card" style="margin-top: 20px;">
+                <div class="route-info-card">
                     <div class="info-grid">
                         <div class="info-item">
                             <div class="info-label">Total Routes</div>
@@ -1432,57 +1292,6 @@ while ($row = $schedule_result->fetch_assoc()) {
                     </div>
                 </div>
             <?php endif; ?>
-        </div>
-    </div>
-    
-    <!-- Modal for Viewing Route Details -->
-    <div id="detailsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title" id="modalRouteTitle">Route Details</h3>
-                <button type="button" class="close-modal" onclick="closeModal()">&times;</button>
-            </div>
-            
-            <!-- Tabs Container -->
-            <div class="tabs-container">
-                <div class="tabs">
-                    <button id="tabStops" class="tab-btn active" onclick="switchTab('stops')">
-                        <i class="fas fa-map-marker-alt"></i> Stops
-                    </button>
-                    <button id="tabSchedules" class="tab-btn" onclick="switchTab('schedules')">
-                        <i class="fas fa-calendar-alt"></i> Schedules
-                    </button>
-                    <button id="tabTimes" class="tab-btn" onclick="switchTab('times')">
-                        <i class="fas fa-clock"></i> Departure Times
-                    </button>
-                </div>
-            </div>
-            
-            <div id="modalRouteSummary" class="route-summary"></div>
-            
-            <!-- Stops Content -->
-            <div id="stopsContent" class="tab-content active">
-                <div class="no-data" style="padding: 40px;">
-                    <i class="fas fa-spinner fa-spin fa-2x" style="color: #4CAF50;"></i>
-                    <p style="margin-top: 15px;">Loading route stops...</p>
-                </div>
-            </div>
-            
-            <!-- Schedules Content -->
-            <div id="schedulesContent" class="tab-content">
-                <div class="no-data" style="padding: 40px;">
-                    <i class="fas fa-calendar-alt fa-2x" style="color: #6c757d;"></i>
-                    <p style="margin-top: 15px;">Select the Schedules tab to view route schedules</p>
-                </div>
-            </div>
-            
-            <!-- Times Content -->
-            <div id="timesContent" class="tab-content">
-                <div class="no-data" style="padding: 40px;">
-                    <i class="fas fa-clock fa-2x" style="color: #6c757d;"></i>
-                    <p style="margin-top: 15px;">Select the Departure Times tab to view departure times</p>
-                </div>
-            </div>
         </div>
     </div>
     
@@ -1585,393 +1394,7 @@ while ($row = $schedule_result->fetch_assoc()) {
                 return false;
             }
             
-            return confirm(`Are you sure you want to delete route "${routeName}" (ID: ${routeId})?\n\nThis action will also delete all associated stops and departure times and cannot be undone.`);
-        }
-        
-        // Keep track of current route ID
-        let currentRouteId = null;
-        
-        // View route details modal
-        function viewRouteDetails(routeId) {
-            currentRouteId = routeId;
-            
-            // Show loading state
-            document.getElementById('stopsContent').innerHTML = `
-                <div style="text-align: center; padding: 40px;">
-                    <i class="fas fa-spinner fa-spin fa-2x" style="color: #4CAF50;"></i>
-                    <p style="margin-top: 15px; color: #666;">Loading route details...</p>
-                </div>
-            `;
-            
-            // Reset to stops tab
-            switchTab('stops');
-            
-            // Fetch route details via AJAX
-            fetch(`get_route_details.php?route_id=${routeId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        document.getElementById('stopsContent').innerHTML = `
-                            <div style="text-align: center; padding: 40px; color: #dc3545;">
-                                <i class="fas fa-exclamation-triangle fa-2x"></i>
-                                <p style="margin-top: 15px;">${data.error}</p>
-                            </div>
-                        `;
-                        return;
-                    }
-                    
-                    // Update modal title
-                    document.getElementById('modalRouteTitle').textContent = `Route: ${data.route.Route_Name}`;
-                    
-                    // Update route summary
-                    document.getElementById('modalRouteSummary').innerHTML = `
-                        <div class="summary-grid">
-                            <div class="summary-item">
-                                <div class="summary-label">Route ID</div>
-                                <div class="summary-value">${data.route.Route_ID}</div>
-                            </div>
-                            <div class="summary-item">
-                                <div class="summary-label">Start Location</div>
-                                <div class="summary-value">${data.route.Start_Location}</div>
-                            </div>
-                            <div class="summary-item">
-                                <div class="summary-label">End Location</div>
-                                <div class="summary-value">${data.route.End_Location}</div>
-                            </div>
-                            <div class="summary-item">
-                                <div class="summary-label">Total Stops</div>
-                                <div class="summary-value">${data.stops.length}</div>
-                            </div>
-                            <div class="summary-item">
-                                <div class="summary-label">Total Departure Times</div>
-                                <div class="summary-value">${data.departure_times.length}</div>
-                            </div>
-                            <div class="summary-item">
-                                <div class="summary-label">Duration</div>
-                                <div class="summary-value">${data.route.Estimated_Duration_Minutes} minutes</div>
-                            </div>
-                            <div class="summary-item">
-                                <div class="summary-label">Status</div>
-                                <div class="summary-value">
-                                    <span class="status-badge status-${data.route.Status.toLowerCase()}">
-                                        ${data.route.Status}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    
-                    // Update stops table
-                    if (data.stops.length > 0) {
-                        let stopsHTML = `
-                            <table class="stops-table">
-                                <thead>
-                                    <tr>
-                                        <th>Stop Order</th>
-                                        <th>Stop Name</th>
-                                        <th>Estimated Time (minutes from start)</th>
-                                        <th>Progress</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                        `;
-                        
-                        data.stops.forEach((stop, index) => {
-                            const progressPercentage = data.route.Estimated_Duration_Minutes > 0 ? 
-                                (stop.Estimated_Time_From_Start / data.route.Estimated_Duration_Minutes * 100).toFixed(1) : 0;
-                            stopsHTML += `
-                                <tr>
-                                    <td>
-                                        <span class="stop-order-badge">${stop.Stop_Order}</span>
-                                    </td>
-                                    <td>
-                                        <strong>${stop.Stop_Name}</strong>
-                                        ${stop.Stop_Order === 1 ? '<br><small style="color: #666;">(Start Point)</small>' : ''}
-                                        ${stop.Stop_Order === data.stops.length ? '<br><small style="color: #666;">(End Point)</small>' : ''}
-                                    </td>
-                                    <td>${stop.Estimated_Time_From_Start} minutes</td>
-                                    <td>
-                                        <div style="display: flex; align-items: center; gap: 10px;">
-                                            <div style="flex-grow: 1; height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                                                <div style="width: ${progressPercentage}%; height: 100%; background: #4CAF50; border-radius: 4px;"></div>
-                                            </div>
-                                            <span style="font-size: 12px; color: #666;">${progressPercentage}%</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `;
-                        });
-                        
-                        stopsHTML += `
-                                </tbody>
-                            </table>
-                        `;
-                        
-                        document.getElementById('stopsContent').innerHTML = stopsHTML;
-                    } else {
-                        document.getElementById('stopsContent').innerHTML = `
-                            <div style="text-align: center; padding: 40px; color: #6c757d;">
-                                <i class="fas fa-info-circle fa-2x"></i>
-                                <p style="margin-top: 15px;">No stops found for this route.</p>
-                                <p style="font-size: 14px; margin-top: 10px;">Add stops using the Edit button.</p>
-                            </div>
-                        `;
-                    }
-                    
-                    // Update times content
-                    if (data.departure_times.length > 0) {
-                        let timesHTML = `
-                            <div style="margin-bottom: 20px;">
-                                <h4 style="color: #495057; margin-bottom: 15px;">Departure Times for this Route</h4>
-                                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                        `;
-                        
-                        data.departure_times.forEach(time => {
-                            const timeStr = time.Departure_Time.substring(0, 5);
-                            timesHTML += `
-                                <div class="time-badge" style="font-size: 14px; padding: 8px 15px;">
-                                    <i class="fas fa-clock" style="margin-right: 5px;"></i>
-                                    ${timeStr}
-                                </div>
-                            `;
-                        });
-                        
-                        timesHTML += `
-                                </div>
-                            </div>
-                            <table class="stops-table">
-                                <thead>
-                                    <tr>
-                                        <th>Time ID</th>
-                                        <th>Departure Time</th>
-                                        <th>24-Hour Format</th>
-                                        <th>12-Hour Format</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                        `;
-                        
-                        data.departure_times.forEach(time => {
-                            const time24 = time.Departure_Time.substring(0, 5);
-                            const time12 = formatTimeTo12Hour(time.Departure_Time);
-                            
-                            timesHTML += `
-                                <tr>
-                                    <td>${time.Time_ID}</td>
-                                    <td>
-                                        <span class="time-badge">${time24}</span>
-                                    </td>
-                                    <td>${time24}</td>
-                                    <td>${time12}</td>
-                                </tr>
-                            `;
-                        });
-                        
-                        timesHTML += `
-                                </tbody>
-                            </table>
-                        `;
-                        
-                        document.getElementById('timesContent').innerHTML = timesHTML;
-                    } else {
-                        document.getElementById('timesContent').innerHTML = `
-                            <div style="text-align: center; padding: 40px; color: #6c757d;">
-                                <i class="fas fa-clock fa-2x"></i>
-                                <p style="margin-top: 15px;">No departure times found for this route.</p>
-                                <p style="font-size: 14px; margin-top: 10px;">Add departure times using the Edit button.</p>
-                            </div>
-                        `;
-                    }
-                    
-                    // Show modal
-                    document.getElementById('detailsModal').style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    document.getElementById('stopsContent').innerHTML = `
-                        <div style="text-align: center; padding: 40px; color: #dc3545;">
-                            <i class="fas fa-exclamation-circle fa-2x"></i>
-                            <p style="margin-top: 15px;">Error loading route details. Please try again.</p>
-                        </div>
-                    `;
-                });
-        }
-        
-        // Helper function to format time to 12-hour format
-        function formatTimeTo12Hour(time24) {
-            const [hours, minutes] = time24.split(':');
-            let hour = parseInt(hours);
-            const ampm = hour >= 12 ? 'PM' : 'AM';
-            hour = hour % 12;
-            hour = hour ? hour : 12; // the hour '0' should be '12'
-            return `${hour}:${minutes} ${ampm}`;
-        }
-        
-        // Tab switching function
-        function switchTab(tabName) {
-            // Update tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
-            
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.getElementById(`${tabName}Content`).classList.add('active');
-            
-            // If switching to schedules tab and route ID exists, load schedules
-            if (tabName === 'schedules' && currentRouteId) {
-                loadSchedules(currentRouteId);
-            }
-        }
-        
-        // Load schedules for selected route
-        function loadSchedules(routeId) {
-            if (!routeId) {
-                document.getElementById('schedulesContent').innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: #dc3545;">
-                        <i class="fas fa-exclamation-triangle fa-2x"></i>
-                        <p style="margin-top: 15px;">No route selected</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            // Show loading
-            document.getElementById('schedulesContent').innerHTML = `
-                <div style="text-align: center; padding: 40px;">
-                    <i class="fas fa-spinner fa-spin fa-2x" style="color: #4CAF50;"></i>
-                    <p style="margin-top: 15px; color: #666;">Loading schedules...</p>
-                </div>
-            `;
-            
-            // Fetch schedules via AJAX
-            fetch(`get_route_schedule.php?route_id=${routeId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        document.getElementById('schedulesContent').innerHTML = `
-                            <div style="text-align: center; padding: 40px; color: #dc3545;">
-                                <i class="fas fa-exclamation-triangle fa-2x"></i>
-                                <p style="margin-top: 15px;">${data.error}</p>
-                            </div>
-                        `;
-                        return;
-                    }
-                    
-                    if (data.schedules.length === 0) {
-                        document.getElementById('schedulesContent').innerHTML = `
-                            <div style="text-align: center; padding: 40px; color: #6c757d;">
-                                <i class="fas fa-calendar-times fa-2x"></i>
-                                <p style="margin-top: 15px;">No schedules found for this route</p>
-                                <p style="font-size: 14px; margin-top: 10px;">Create schedules in the Schedule Management page</p>
-                            </div>
-                        `;
-                        return;
-                    }
-                    
-                    // Display schedules in a table
-                    let html = `
-                        <div class="table-container">
-                            <table class="stops-table">
-                                <thead>
-                                    <tr>
-                                        <th>Schedule ID</th>
-                                        <th>Date & Time</th>
-                                        <th>Vehicle</th>
-                                        <th>Driver</th>
-                                        <th>Status</th>
-                                        <th>Available Seats</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                    `;
-                    
-                    data.schedules.forEach(schedule => {
-                        const departureTime = new Date(schedule.Departure_time);
-                        const expectedArrival = schedule.Expected_Arrival ? new Date(schedule.Expected_Arrival) : null;
-                        const formattedDate = departureTime.toLocaleDateString();
-                        const formattedTime = departureTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                        const formattedArrival = expectedArrival ? expectedArrival.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A';
-                        
-                        // Determine status badge class
-                        let statusClass = '';
-                        switch(schedule.Status.toLowerCase()) {
-                            case 'scheduled': statusClass = 'status-active'; break;
-                            case 'in progress': statusClass = 'status-inprogress'; break;
-                            case 'completed': statusClass = 'status-completed'; break;
-                            case 'cancelled': statusClass = 'status-cancelled'; break;
-                            case 'delayed': statusClass = 'status-delayed'; break;
-                            default: statusClass = 'status-active';
-                        }
-                        
-                        html += `
-                            <tr>
-                                <td><strong>${schedule.Schedule_ID}</strong></td>
-                                <td>
-                                    <div><strong>${formattedDate}</strong></div>
-                                    <div><small>${formattedTime}</small></div>
-                                    ${expectedArrival ? `<div><small>Arrival: ${formattedArrival}</small></div>` : ''}
-                                </td>
-                                <td>
-                                    ${schedule.Plate_number || 'Not assigned'}<br>
-                                    <small style="color: #666;">${schedule.Model || ''}</small>
-                                </td>
-                                <td>${schedule.Driver_Name || 'Not assigned'}</td>
-                                <td>
-                                    <span class="status-badge ${statusClass}">
-                                        ${schedule.Status}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span style="font-weight: bold; font-size: 16px;">${schedule.Available_Seats}</span>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                    
-                    html += `
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <div style="margin-top: 20px; text-align: center; font-size: 12px; color: #666;">
-                            <i class="fas fa-info-circle"></i> Showing ${data.schedules.length} schedule(s) for this route
-                        </div>
-                    `;
-                    
-                    document.getElementById('schedulesContent').innerHTML = html;
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    document.getElementById('schedulesContent').innerHTML = `
-                        <div style="text-align: center; padding: 40px; color: #dc3545;">
-                            <i class="fas fa-exclamation-circle fa-2x"></i>
-                            <p style="margin-top: 15px;">Error loading schedules. Please try again.</p>
-                        </div>
-                    `;
-                });
-        }
-        
-        // Close modal
-        function closeModal() {
-            document.getElementById('detailsModal').style.display = 'none';
-            // Clear modal content
-            document.getElementById('modalRouteSummary').innerHTML = '';
-            document.getElementById('stopsContent').innerHTML = '';
-            document.getElementById('schedulesContent').innerHTML = '';
-            document.getElementById('timesContent').innerHTML = '';
-            currentRouteId = null;
-        }
-        
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('detailsModal');
-            if (event.target == modal) {
-                closeModal();
-            }
+            return confirm(`Are you sure you want to delete route "${routeName}" (ID: ${routeId})?\n\nThis action will also delete all associated stops, departure times, and cannot be undone.`);
         }
         
         // Form validation

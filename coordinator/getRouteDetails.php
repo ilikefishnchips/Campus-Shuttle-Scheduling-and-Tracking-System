@@ -4,7 +4,8 @@ require_once '../includes/config.php';
 
 // Check if user is logged in
 if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Transport Coordinator') {
-    header('Location: ../coordinator_login.php');
+    header('Content-Type: application/json'); // 添加这行
+    echo json_encode(['error' => 'Unauthorized access']);
     exit();
 }
 
@@ -12,6 +13,7 @@ if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Transport Coordinator')
 $route_id = isset($_GET['route_id']) ? intval($_GET['route_id']) : 0;
 
 if ($route_id <= 0) {
+    header('Content-Type: application/json'); // 添加这行
     echo json_encode(['error' => 'Invalid route ID']);
     exit();
 }
@@ -26,6 +28,7 @@ try {
     $route = $route_result->fetch_assoc();
     
     if (!$route) {
+        header('Content-Type: application/json'); // 添加这行
         echo json_encode(['error' => 'Route not found']);
         exit();
     }
@@ -46,6 +49,7 @@ try {
     $times_result = $times_stmt->get_result();
     $departure_times = $times_result->fetch_all(MYSQLI_ASSOC);
     
+    header('Content-Type: application/json'); // 添加这行
     echo json_encode([
         'route' => $route,
         'stops' => $stops,
@@ -53,6 +57,7 @@ try {
     ]);
     
 } catch (Exception $e) {
+    header('Content-Type: application/json'); // 添加这行
     echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
 }
 ?>
