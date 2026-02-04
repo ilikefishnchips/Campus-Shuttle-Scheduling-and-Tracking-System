@@ -136,12 +136,13 @@ if(isset($_GET['driver_id'])) {
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #f5f5f5 0%, #e8eaf6 100%);
+            min-height: 100vh;
         }
         
         .navbar {
             background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
             padding: 0 20px;
             height: 70px;
             position: fixed;
@@ -208,13 +209,15 @@ if(isset($_GET['driver_id'])) {
             border-radius: 5px;
             cursor: pointer;
             font-weight: 600;
-            transition: background 0.3s;
+            transition: all 0.3s;
             text-decoration: none;
             display: inline-block;
         }
         
         .back-btn:hover {
             background: #7B1FA2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
         }
         
         .main-container {
@@ -224,115 +227,132 @@ if(isset($_GET['driver_id'])) {
         }
         
         .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            text-align: center;
             margin-bottom: 30px;
         }
         
         .page-title {
-            font-size: 28px;
+            font-size: 32px;
             color: #333;
+            margin-bottom: 10px;
+            font-weight: 700;
         }
         
         .page-subtitle {
             color: #666;
-            margin-bottom: 30px;
+            font-size: 16px;
+            max-width: 600px;
+            margin: 0 auto 30px;
+            line-height: 1.6;
         }
         
         .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
             margin-bottom: 40px;
-        }
-        
-        @media (max-width: 1024px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
         }
         
         .form-section {
             background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
         }
         
         .form-title {
-            font-size: 20px;
+            font-size: 28px;
             color: #333;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #9C27B0;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #9C27B0;
+            text-align: center;
+            font-weight: 700;
+            letter-spacing: 0.5px;
         }
         
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 30px;
         }
         
         .form-label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
             font-weight: 600;
             color: #333;
-            font-size: 14px;
+            font-size: 16px;
         }
         
         .form-control {
             width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            transition: border 0.3s;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s;
+            background: #f9f9f9;
         }
         
         .form-control:focus {
             outline: none;
             border-color: #9C27B0;
-            box-shadow: 0 0 0 2px rgba(156, 39, 176, 0.1);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(156, 39, 176, 0.1);
         }
         
         .select-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
         }
         
         .select-card {
-            padding: 15px;
+            padding: 25px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
-            transition: all 0.3s;
-            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: left;
             position: relative;
+            background: white;
+        }
+        
+        .select-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: #9C27B0;
         }
         
         .select-card.selected {
             border-color: #9C27B0;
-            background: rgba(156, 39, 176, 0.1);
+            background: linear-gradient(135deg, rgba(156, 39, 176, 0.08) 0%, rgba(156, 39, 176, 0.15) 100%);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(156, 39, 176, 0.2);
         }
         
         .card-title {
-            font-weight: 600;
-            font-size: 16px;
-            margin-bottom: 8px;
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 10px;
             color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
         
         .card-details {
-            font-size: 12px;
+            font-size: 14px;
             color: #666;
-            line-height: 1.4;
+            line-height: 1.6;
         }
         
         .time-inputs {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
             margin-top: 10px;
         }
         
@@ -341,57 +361,72 @@ if(isset($_GET['driver_id'])) {
         }
         
         .time-input input {
-            padding-right: 30px;
+            padding-right: 40px;
         }
         
         .remove-time {
             position: absolute;
-            right: 8px;
+            right: 12px;
             top: 50%;
             transform: translateY(-50%);
             background: #f44336;
             color: white;
             border: none;
             border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .add-time-btn {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
+            width: 24px;
+            height: 24px;
             cursor: pointer;
             font-size: 14px;
             display: flex;
             align-items: center;
-            gap: 5px;
-            margin-top: 10px;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .remove-time:hover {
+            background: #d32f2f;
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .add-time-btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .add-time-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
         }
         
         .btn-primary {
-            background: #9C27B0;
+            background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
             color: white;
             border: none;
-            padding: 12px 30px;
-            border-radius: 5px;
+            padding: 18px 60px;
+            border-radius: 12px;
             cursor: pointer;
-            font-weight: 600;
-            font-size: 16px;
-            transition: background 0.3s;
+            font-weight: 700;
+            font-size: 18px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: inline-block;
             text-align: center;
+            letter-spacing: 0.5px;
         }
         
         .btn-primary:hover {
-            background: #7B1FA2;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(156, 39, 176, 0.4);
         }
         
         .btn-block {
@@ -400,127 +435,46 @@ if(isset($_GET['driver_id'])) {
         }
         
         .alert {
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
             font-weight: 500;
+            text-align: center;
+            font-size: 16px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
         }
         
         .alert-success {
-            background: #d4edda;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
             color: #155724;
-            border: 1px solid #c3e6cb;
+            border: 2px solid #b1dfbb;
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.2);
         }
         
         .alert-error {
-            background: #f8d7da;
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
             color: #721c24;
-            border: 1px solid #f5c6cb;
+            border: 2px solid #f1b0b7;
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.2);
         }
         
-        .schedules-section {
-            background: white;
-            padding: 30px;
+        .date-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
             border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-        }
-        
-        .schedules-list {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-        
-        .schedule-day {
-            margin-bottom: 25px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .day-header {
-            background: #f5f5f5;
-            padding: 15px;
-            font-weight: 600;
-            color: #333;
-            border-bottom: 1px solid #e0e0e0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .day-date {
-            font-size: 14px;
-            color: #666;
-        }
-        
-        .day-schedules {
-            padding: 15px;
-        }
-        
-        .schedule-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            border-bottom: 1px solid #f0f0f0;
+            font-size: 15px;
             background: #f9f9f9;
-            margin-bottom: 8px;
-            border-radius: 5px;
+            transition: all 0.3s;
         }
         
-        .schedule-item:last-child {
-            margin-bottom: 0;
-            border-bottom: none;
-        }
-        
-        .schedule-info h4 {
-            font-size: 14px;
-            margin-bottom: 5px;
-            color: #333;
-        }
-        
-        .schedule-details {
-            font-size: 12px;
-            color: #666;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        
-        .schedule-time {
-            font-weight: 600;
-            color: #9C27B0;
-        }
-        
-        .schedule-route {
-            color: #2196F3;
-        }
-        
-        .schedule-vehicle {
-            color: #4CAF50;
-        }
-        
-        .remove-btn {
-            background: #F44336;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .no-schedules {
-            text-align: center;
-            color: #999;
-            padding: 40px;
-            font-style: italic;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
+        .date-input:focus {
+            outline: none;
+            border-color: #9C27B0;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(156, 39, 176, 0.1);
         }
         
         .text-center {
@@ -536,32 +490,45 @@ if(isset($_GET['driver_id'])) {
         }
         
         .summary-card {
-            background: #e3f2fd;
-            border: 1px solid #bbdefb;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 20px;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 2px solid #90caf9;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 30px;
         }
         
         .summary-title {
-            font-weight: 600;
+            font-weight: 700;
             color: #1976d2;
-            margin-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 18px;
+            text-align: center;
         }
         
         .summary-item {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 5px;
-            font-size: 13px;
+            margin-bottom: 12px;
+            font-size: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(25, 118, 210, 0.2);
+        }
+        
+        .summary-item:last-child {
+            border-bottom: none;
+            font-weight: 700;
+            color: #333;
+            font-size: 16px;
+            padding-top: 8px;
         }
         
         .driver-status {
-            margin-top: 8px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
+            margin-top: 12px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
             display: inline-block;
+            font-weight: 600;
         }
         
         .status-license-valid {
@@ -582,54 +549,150 @@ if(isset($_GET['driver_id'])) {
         .role-badge {
             background: #2196F3;
             color: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 10px;
-            margin-left: 5px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-left: 10px;
+            font-weight: 600;
         }
         
         .route-badge {
             position: absolute;
-            top: 5px;
-            right: 5px;
+            top: 15px;
+            right: 15px;
             background: #4CAF50;
             color: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
         }
         
         .predefined-times {
-            font-size: 11px;
+            font-size: 13px;
             color: #666;
-            margin-top: 5px;
-            padding: 3px;
+            margin-top: 12px;
+            padding: 8px;
             background: #f0f0f0;
-            border-radius: 3px;
+            border-radius: 6px;
+            line-height: 1.4;
         }
         
         .copy-times-btn {
-            background: #2196F3;
+            background: linear-gradient(135deg, #2196F3 0%, #0d8bf2 100%);
             color: white;
             border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
+            padding: 8px 16px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 11px;
-            margin-top: 5px;
+            font-size: 13px;
+            margin-top: 12px;
             display: inline-block;
+            font-weight: 600;
+            transition: all 0.3s;
         }
         
         .copy-times-btn:hover {
-            background: #0d8bf2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
         }
         
-        .date-input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+        .required-field::after {
+            content: " *";
+            color: #f44336;
+        }
+        
+        .form-instruction {
+            background: #f8f9fa;
+            border-left: 4px solid #9C27B0;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
             font-size: 14px;
+            color: #666;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 1200px) {
+            .form-section {
+                max-width: 900px;
+            }
+            
+            .select-grid {
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            }
+        }
+        
+        @media (max-width: 992px) {
+            .form-section {
+                padding: 40px;
+                max-width: 800px;
+            }
+            
+            .select-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .form-section {
+                padding: 30px;
+                margin: 0 15px;
+            }
+            
+            .form-title {
+                font-size: 24px;
+                margin-bottom: 30px;
+            }
+            
+            .select-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .time-inputs {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-primary {
+                padding: 16px 40px;
+                font-size: 16px;
+            }
+            
+            .main-container {
+                padding: 20px;
+                margin-top: 80px;
+            }
+            
+            .page-title {
+                font-size: 28px;
+            }
+            
+            .navbar {
+                padding: 0 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .form-section {
+                padding: 25px 20px;
+            }
+            
+            .page-title {
+                font-size: 24px;
+            }
+            
+            .form-title {
+                font-size: 22px;
+            }
+            
+            .admin-profile {
+                gap: 10px;
+            }
+            
+            .back-btn {
+                padding: 6px 15px;
+                font-size: 14px;
+            }
         }
     </style>
 </head>
@@ -655,9 +718,8 @@ if(isset($_GET['driver_id'])) {
     <div class="main-container">
         <div class="page-header">
             <h1 class="page-title">Assign Driver Schedule</h1>
+            <p class="page-subtitle">Plan and assign shuttle schedules to drivers for specific dates. Select a driver, vehicle, route, and set departure times.</p>
         </div>
-        
-        <p class="page-subtitle">Plan and assign shuttle schedules to drivers for specific dates</p>
         
         <?php if(isset($success_message)): ?>
             <div class="alert alert-success">
@@ -676,21 +738,27 @@ if(isset($_GET['driver_id'])) {
             <div class="form-section">
                 <h2 class="form-title">Create Driver Schedule</h2>
                 
+                <div class="form-instruction">
+                    <strong>Instructions:</strong> Please complete all required fields marked with *. Select one option from each section.
+                </div>
+                
                 <form id="scheduleForm" method="POST" action="">
                     <!-- Driver Selection -->
                     <div class="form-group">
-                        <label class="form-label">Select Driver</label>
+                        <label class="form-label required-field">Select Driver</label>
                         <div class="select-grid" id="driverSelect">
                             <?php if(empty($drivers)): ?>
-                                <div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #999;">
-                                    <strong>No drivers found in the system.</strong><br>
-                                    <small>Please ensure you have:
-                                        <ol style="text-align: left; margin-top: 10px;">
-                                            <li>Users with 'Driver' role in user_roles table</li>
-                                            <li>Driver profiles in driver_profile table</li>
-                                            <li>'Driver' role exists in roles table</li>
-                                        </ol>
-                                    </small>
+                                <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: #999; background: #f8f9fa; border-radius: 10px;">
+                                    <strong style="display: block; margin-bottom: 15px; font-size: 18px; color: #666;">No drivers found in the system.</strong>
+                                    <div style="text-align: left; max-width: 500px; margin: 0 auto;">
+                                        <small>Please ensure you have:
+                                            <ol style="margin-top: 15px; padding-left: 20px;">
+                                                <li>Users with 'Driver' role in user_roles table</li>
+                                                <li>Driver profiles in driver_profile table</li>
+                                                <li>'Driver' role exists in roles table</li>
+                                            </ol>
+                                        </small>
+                                    </div>
                                 </div>
                             <?php else: ?>
                                 <?php foreach($drivers as $driver): 
@@ -747,31 +815,37 @@ if(isset($_GET['driver_id'])) {
                     
                     <!-- Vehicle Selection -->
                     <div class="form-group">
-                        <label class="form-label">Select Vehicle</label>
+                        <label class="form-label required-field">Select Vehicle</label>
                         <div class="select-grid" id="vehicleSelect">
-                            <?php foreach($vehicles as $vehicle): ?>
-                                <div class="select-card" 
-                                     data-vehicle-id="<?php echo $vehicle['Vehicle_ID']; ?>"
-                                     onclick="selectVehicle(this, <?php echo $vehicle['Vehicle_ID']; ?>)">
-                                    <div class="card-title"><?php echo $vehicle['Plate_number']; ?></div>
-                                    <div class="card-details">
-                                        Model: <?php echo $vehicle['Model']; ?><br>
-                                        Capacity: <?php echo $vehicle['Capacity']; ?> seats<br>
-                                        Status: <?php echo $vehicle['Status']; ?>
-                                    </div>
+                            <?php if(empty($vehicles)): ?>
+                                <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: #999; background: #f8f9fa; border-radius: 10px;">
+                                    No active vehicles found. Please add vehicles first.
                                 </div>
-                            <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php foreach($vehicles as $vehicle): ?>
+                                    <div class="select-card" 
+                                         data-vehicle-id="<?php echo $vehicle['Vehicle_ID']; ?>"
+                                         onclick="selectVehicle(this, <?php echo $vehicle['Vehicle_ID']; ?>)">
+                                        <div class="card-title"><?php echo $vehicle['Plate_number']; ?></div>
+                                        <div class="card-details">
+                                            <strong>Model:</strong> <?php echo $vehicle['Model']; ?><br>
+                                            <strong>Capacity:</strong> <?php echo $vehicle['Capacity']; ?> seats<br>
+                                            <strong>Status:</strong> <span style="color: #4CAF50; font-weight: 600;"><?php echo $vehicle['Status']; ?></span>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
                         <input type="hidden" name="vehicle_id" id="selectedVehicle" required>
                     </div>
                     
                     <!-- Route Selection -->
                     <div class="form-group">
-                        <label class="form-label">Select Route</label>
+                        <label class="form-label required-field">Select Route</label>
                         <div class="select-grid" id="routeSelect">
                             <?php if(empty($routes)): ?>
-                                <div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #999;">
-                                    No routes found in the system.
+                                <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: #999; background: #f8f9fa; border-radius: 10px;">
+                                    No active routes found. Please add routes first.
                                 </div>
                             <?php else: ?>
                                 <?php foreach($routes as $route): ?>
@@ -795,12 +869,12 @@ if(isset($_GET['driver_id'])) {
                                                     foreach(array_slice($times, 0, 3) as $time) {
                                                         echo date('H:i', strtotime($time)) . ' ';
                                                     }
-                                                    if(count($times) > 3) echo '...';
+                                                    if(count($times) > 3) echo '... (' . count($times) . ' total)';
                                                     ?>
                                                 </div>
                                                 <button type="button" class="copy-times-btn" 
                                                         onclick="copyPredefinedTimes('<?php echo htmlspecialchars($route['route_times']); ?>')">
-                                                    Copy Times
+                                                    Copy Predefined Times
                                                 </button>
                                             <?php endif; ?>
                                         </div>
@@ -813,23 +887,29 @@ if(isset($_GET['driver_id'])) {
                     
                     <!-- Schedule Date -->
                     <div class="form-group">
-                        <label class="form-label">Schedule Date</label>
+                        <label class="form-label required-field">Schedule Date</label>
                         <input type="date" name="schedule_date" id="scheduleDate" 
                                class="date-input" required 
                                min="<?php echo date('Y-m-d'); ?>"
                                value="<?php echo date('Y-m-d'); ?>"
                                onchange="calculateSummary()">
+                        <small style="display: block; margin-top: 8px; color: #666;">Select the date for the schedule</small>
                     </div>
                     
                     <!-- Departure Times -->
                     <div class="form-group">
-                        <label class="form-label">Departure Times (HH:MM format)</label>
+                        <label class="form-label required-field">Departure Times (24-hour format: HH:MM)</label>
                         <div id="timeInputsContainer" class="time-inputs">
                             <div class="time-input">
                                 <input type="time" name="departure_times[]" 
-                                       class="form-control" required value="08:00">
+                                       class="form-control" required value="08:00"
+                                       onchange="calculateSummary()">
                             </div>
                         </div>
+                        <button type="button" class="add-time-btn" onclick="addTimeInput()">
+                            <span style="font-size: 18px;">+</span> Add Another Departure Time
+                        </button>
+                        <small style="display: block; margin-top: 8px; color: #666;">Add multiple times for multiple trips on the same day</small>
                     </div>
                     
                     <!-- Summary -->
@@ -839,67 +919,15 @@ if(isset($_GET['driver_id'])) {
                     </div>
                     
                     <!-- Submit Button -->
-                    <button type="submit" class="btn-primary btn-block mt-4">Create Schedule</button>
+                    <div class="text-center" style="margin-top: 40px;">
+                        <button type="submit" class="btn-primary">
+                            <span style="margin-right: 10px;">✓</span> Create Schedule
+                        </button>
+                        <p style="margin-top: 15px; color: #666; font-size: 14px;">
+                            Review all selections before submitting
+                        </p>
+                    </div>
                 </form>
-            </div>
-            
-            <!-- Current Schedules -->
-            <div class="schedules-section">
-                <h2 class="form-title">Current Driver Schedules</h2>
-                
-                <div id="schedulesContainer" class="schedules-list">
-                    <?php if(isset($_GET['driver_id'])): ?>
-                        <?php if(!empty($current_schedules)): 
-                            // Group schedules by date
-                            $grouped_schedules = [];
-                            foreach($current_schedules as $schedule) {
-                                $date = $schedule['schedule_date'];
-                                $grouped_schedules[$date][] = $schedule;
-                            }
-                        ?>
-                            <?php foreach($grouped_schedules as $date => $schedules): ?>
-                                <div class="schedule-day">
-                                    <div class="day-header">
-                                        <div><?php echo date('l, F j, Y', strtotime($date)); ?></div>
-                                        <div class="day-date"><?php echo count($schedules); ?> trips</div>
-                                    </div>
-                                    <div class="day-schedules">
-                                        <?php foreach($schedules as $schedule): ?>
-                                            <div class="schedule-item">
-                                                <div class="schedule-info">
-                                                    <h4><?php echo $schedule['Route_Name']; ?></h4>
-                                                    <div class="schedule-details">
-                                                        <span class="schedule-time">
-                                                            <?php echo date('H:i', strtotime($schedule['schedule_time'])); ?>
-                                                        </span>
-                                                        <span class="schedule-vehicle">
-                                                            <?php echo $schedule['Plate_number']; ?>
-                                                        </span>
-                                                        <span class="schedule-route">
-                                                            Seats: <?php echo $schedule['Available_Seats']; ?>
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <button class="remove-btn" 
-                                                        onclick="removeSchedule(<?php echo $schedule['Schedule_ID']; ?>)">
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <div class="no-schedules">
-                                No upcoming schedules found for this driver.
-                            </div>
-                        <?php endif; ?>
-                    <?php else: ?>
-                        <div class="loading">
-                            Select a driver to view current schedules
-                        </div>
-                    <?php endif; ?>
-                </div>
             </div>
         </div>
     </div>
@@ -918,7 +946,11 @@ if(isset($_GET['driver_id'])) {
             selectedDriver = driverId;
             document.getElementById('selectedDriver').value = driverId;
             
-            loadDriverSchedules(driverId);
+            // Load driver schedules if needed
+            if(typeof loadDriverSchedules === 'function') {
+                loadDriverSchedules(driverId);
+            }
+            
             calculateSummary();
         }
         
@@ -941,10 +973,19 @@ if(isset($_GET['driver_id'])) {
             selectedRouteDuration = duration || 15;
             document.getElementById('selectedRoute').value = routeId;
             calculateSummary();
+            
+            // Show notification about predefined times
+            if(routeTimes && routeTimes.trim() !== '') {
+                const times = routeTimes.split(', ').length;
+                console.log(`Route has ${times} predefined departure times available. Click "Copy Predefined Times" to use them.`);
+            }
         }
         
         function copyPredefinedTimes(routeTimes) {
-            if(!routeTimes) return;
+            if(!routeTimes || routeTimes.trim() === '') {
+                alert('No predefined times available for this route.');
+                return;
+            }
             
             const times = routeTimes.split(', ');
             const container = document.getElementById('timeInputsContainer');
@@ -958,25 +999,48 @@ if(isset($_GET['driver_id'])) {
                 const newInput = document.createElement('div');
                 newInput.className = 'time-input';
                 newInput.innerHTML = `
-                    <input type="time" name="departure_times[]" class="form-control" required value="${timeStr}">
+                    <input type="time" name="departure_times[]" class="form-control" required value="${timeStr}" onchange="calculateSummary()">
                     ${index > 0 ? '<button type="button" class="remove-time" onclick="removeTimeInput(this)">×</button>' : ''}
                 `;
                 container.appendChild(newInput);
             });
             
-            alert(`Copied ${times.length} predefined times for this route.`);
+            // Add event listeners to new inputs
+            container.querySelectorAll('input[type="time"]').forEach(input => {
+                input.addEventListener('change', calculateSummary);
+            });
+            
+            alert(`✓ Copied ${times.length} predefined times for this route.`);
             calculateSummary();
         }
         
         function addTimeInput() {
             const container = document.getElementById('timeInputsContainer');
+            const currentTimeInputs = container.querySelectorAll('input[type="time"]');
+            
+            // Find the latest time and add 1 hour
+            let latestTime = '09:00';
+            if(currentTimeInputs.length > 0) {
+                const lastInput = currentTimeInputs[currentTimeInputs.length - 1];
+                const lastValue = lastInput.value;
+                if(lastValue) {
+                    const [hours, minutes] = lastValue.split(':');
+                    const date = new Date();
+                    date.setHours(parseInt(hours) + 1, parseInt(minutes));
+                    latestTime = date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+                }
+            }
+            
             const newInput = document.createElement('div');
             newInput.className = 'time-input';
             newInput.innerHTML = `
-                <input type="time" name="departure_times[]" class="form-control" required value="09:00">
+                <input type="time" name="departure_times[]" class="form-control" required value="${latestTime}" onchange="calculateSummary()">
                 <button type="button" class="remove-time" onclick="removeTimeInput(this)">×</button>
             `;
             container.appendChild(newInput);
+            
+            // Add event listener to new input
+            newInput.querySelector('input').addEventListener('change', calculateSummary);
             calculateSummary();
         }
         
@@ -985,39 +1049,8 @@ if(isset($_GET['driver_id'])) {
             if(container.children.length > 1) {
                 button.parentElement.remove();
                 calculateSummary();
-            }
-        }
-        
-        function loadDriverSchedules(driverId) {
-            const container = document.getElementById('schedulesContainer');
-            container.innerHTML = '<div class="loading">Loading schedules...</div>';
-            
-            fetch(`get_driver_schedules.php?driver_id=${driverId}`)
-                .then(response => response.text())
-                .then(html => {
-                    container.innerHTML = html;
-                })
-                .catch(error => {
-                    container.innerHTML = '<div class="no-schedules">Error loading schedules</div>';
-                });
-        }
-        
-        function removeSchedule(scheduleId) {
-            if(confirm('Are you sure you want to cancel this schedule?')) {
-                fetch(`cancel_schedule.php?schedule_id=${scheduleId}`, {
-                    method: 'DELETE'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if(data.success && selectedDriver) {
-                        loadDriverSchedules(selectedDriver);
-                    } else {
-                        alert('Error cancelling schedule');
-                    }
-                })
-                .catch(error => {
-                    alert('Error cancelling schedule');
-                });
+            } else {
+                alert('At least one departure time is required.');
             }
         }
         
@@ -1025,6 +1058,9 @@ if(isset($_GET['driver_id'])) {
             const scheduleDate = document.getElementById('scheduleDate').value;
             const timeInputs = document.querySelectorAll('input[name="departure_times[]"]');
             const timesCount = timeInputs.length;
+            
+            // Get all time values
+            const timeValues = Array.from(timeInputs).map(input => input.value).filter(value => value);
             
             if(!scheduleDate || !selectedDriver || !selectedVehicle || !selectedRoute) {
                 document.getElementById('summarySection').style.display = 'none';
@@ -1040,24 +1076,33 @@ if(isset($_GET['driver_id'])) {
                 day: 'numeric' 
             });
             
+            // Calculate total hours and minutes
+            const totalMinutes = timesCount * selectedRouteDuration;
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            
             // Update summary
             document.getElementById('summarySection').style.display = 'block';
             document.getElementById('summaryContent').innerHTML = `
                 <div class="summary-item">
                     <span>Schedule Date:</span>
-                    <span>${formattedDate}</span>
+                    <span><strong>${formattedDate}</strong></span>
                 </div>
                 <div class="summary-item">
                     <span>Number of Trips:</span>
                     <span>${timesCount}</span>
                 </div>
                 <div class="summary-item">
+                    <span>Departure Times:</span>
+                    <span>${timeValues.map(time => time.substring(0, 5)).join(', ')}</span>
+                </div>
+                <div class="summary-item">
                     <span>Route Duration:</span>
                     <span>${selectedRouteDuration} minutes per trip</span>
                 </div>
                 <div class="summary-item">
-                    <span><strong>Total Time:</strong></span>
-                    <span><strong>${timesCount * selectedRouteDuration} minutes</strong></span>
+                    <span><strong>Total Working Time:</strong></span>
+                    <span><strong>${hours > 0 ? hours + 'h ' : ''}${minutes}m</strong></span>
                 </div>
             `;
         }
@@ -1078,7 +1123,36 @@ if(isset($_GET['driver_id'])) {
             document.getElementById('scheduleDate').addEventListener('change', calculateSummary);
             
             // Initialize with one time input
-            calculateSummary();
+            document.getElementById('timeInputsContainer').querySelector('input').addEventListener('change', calculateSummary);
+            
+            // Form validation before submit
+            document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+                const driver = document.getElementById('selectedDriver').value;
+                const vehicle = document.getElementById('selectedVehicle').value;
+                const route = document.getElementById('selectedRoute').value;
+                const date = document.getElementById('scheduleDate').value;
+                const timeInputs = document.querySelectorAll('input[name="departure_times[]"]');
+                
+                let hasEmptyTime = false;
+                timeInputs.forEach(input => {
+                    if(!input.value) hasEmptyTime = true;
+                });
+                
+                if(!driver || !vehicle || !route || !date || hasEmptyTime) {
+                    e.preventDefault();
+                    alert('Please complete all required fields before submitting.');
+                    return false;
+                }
+                
+                // Show confirmation
+                const confirmSubmit = confirm('Are you sure you want to create this schedule?');
+                if(!confirmSubmit) {
+                    e.preventDefault();
+                }
+            });
+            
+            // Initial summary calculation
+            setTimeout(calculateSummary, 100);
         });
     </script>
 </body>

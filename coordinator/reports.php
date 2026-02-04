@@ -586,7 +586,7 @@ $incident_types = $conn->query("SELECT DISTINCT Incident_Type FROM incident_repo
         <div class="logo">🚌 Campus Shuttle - Incident Reports</div>
         <div class="user-info">
             <div class="user-badge">Transport Coordinator</div>
-            <a href="coordinator_dashboard.php" class="nav-btn">Dashboard</a>
+            <a href="controlPanel.php" class="nav-btn">Dashboard</a>
             <button class="nav-btn" onclick="logout()">Logout</button>
         </div>
     </nav>
@@ -741,7 +741,6 @@ $incident_types = $conn->query("SELECT DISTINCT Incident_Type FROM incident_repo
                             <th>Reporter</th>
                             <th>Reported</th>
                             <th>Open Hours</th>
-                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -800,16 +799,6 @@ $incident_types = $conn->query("SELECT DISTINCT Incident_Type FROM incident_repo
                                 </td>
                                 <td>
                                     <?php echo round($incident['hours_open'], 1); ?>h
-                                </td>
-                                <td>
-                                    <div class="action-cell">
-                                        <button class="action-btn btn-view" onclick="viewIncident(<?php echo $incident['Incident_ID']; ?>)">
-                                            View
-                                        </button>
-                                        <button class="action-btn btn-update" onclick="updateIncident(<?php echo $incident['Incident_ID']; ?>)">
-                                            Update
-                                        </button>
-                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

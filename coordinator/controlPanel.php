@@ -822,12 +822,9 @@ $vehicle_status = $conn->query("
             
             <div class="navbar-center">
                 <ul class="nav-links">
-                    <li><a href="index.php" class="nav-link">Dashboard</a></li>
                     <li><a href="manageRoutePage.php" class="nav-link">Routes</a></li>
-                    <li><a href="../coordinator/createSchedule.php" class="nav-link">Schedules</a></li>
-                    <li><a href="incident_management.php" class="nav-link">Incidents</a></li>
-                    <li><a href="vehicle_management.php" class="nav-link">Vehicles</a></li>
-                    <li><a href="/reports.php" class="nav-link">Reports</a></li>
+                    <li><a href="assignDriver.php" class="nav-link">Vehicles</a></li>
+                    <li><a href="reports.php" class="nav-link">Incidents</a></li>
                 </ul>
             </div>
             
@@ -946,7 +943,6 @@ $vehicle_status = $conn->query("
                 <div class="section-card">
                     <h3 class="section-title">
                         Active Incidents
-                        <a href="#" class="view-all">View All</a>
                     </h3>
                     <?php if(count($recent_incidents) > 0): ?>
                         <ul class="incident-list">
@@ -980,7 +976,6 @@ $vehicle_status = $conn->query("
                 <div class="section-card">
                     <h3 class="section-title">
                         Upcoming Schedules
-                        <a href="#" class="view-all">View All</a>
                     </h3>
                     <?php if(count($upcoming_schedules) > 0): ?>
                         <ul class="schedule-list">
@@ -1008,11 +1003,6 @@ $vehicle_status = $conn->query("
             <!-- Right Column: Vehicle Status -->
             <div class="right-column">
                 <div class="section-card">
-                    <h3 class="section-title">
-                        Vehicle Fleet Status
-                        <a href="#" class="view-all">Manage Vehicles</a>
-                    </h3>
-                    
                     <table class="vehicle-table">
                         <thead>
                             <tr>
