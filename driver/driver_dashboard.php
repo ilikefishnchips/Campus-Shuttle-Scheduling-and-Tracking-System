@@ -63,7 +63,12 @@ $assigned_routes = $stmt->get_result();
    Incident notifications (reported by driver)
 ----------------------------------------- */
 $sql_incidents = "
-SELECT Incident_Type, Status, Priority, Reported_At
+SELECT 
+    Incident_Type,
+    Description,
+    Status,
+    Priority,
+    Reported_At
 FROM incident_reports
 WHERE Reporter_ID = ?
 ORDER BY Reported_At DESC
@@ -265,19 +270,27 @@ body{ background:#f2f2f2; }
 <div>
 <div class="section-card">
 <h3>🔔 Recent Reports</h3>
+
 <?php if($incidents->num_rows): ?>
 <?php while($i=$incidents->fetch_assoc()): ?>
 <div class="item">
-<strong><?= $i['Incident_Type']; ?></strong><br>
-Priority: <?= $i['Priority']; ?><br>
-Status: <?= $i['Status']; ?><br>
-🕒 <?= date('M d, H:i', strtotime($i['Reported_At'])); ?>
+    <strong><?= htmlspecialchars($i['Incident_Type']); ?></strong><br>
+
+    <small style="color:#555;">
+        <?= nl2br(htmlspecialchars($i['Description'])); ?>
+    </small><br><br>
+
+    <strong>Priority:</strong> <?= htmlspecialchars($i['Priority']); ?><br>
+    <strong>Status:</strong> <?= htmlspecialchars($i['Status']); ?><br>
+    🕒 <?= date('M d, H:i', strtotime($i['Reported_At'])); ?>
 </div>
 <?php endwhile; ?>
 <?php else: ?>
 <p>No recent reports</p>
 <?php endif; ?>
+
 </div>
+
 </div>
 
 </div>

@@ -131,6 +131,8 @@ body {
 </head>
 <body>
 
+<?php include 'driver_navbar.php'; ?>
+
 <div class="container">
 <div class="title">Driver Notifications</div>
 

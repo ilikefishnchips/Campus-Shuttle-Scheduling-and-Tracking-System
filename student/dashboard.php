@@ -46,26 +46,24 @@ $stmt->execute();
 $upcoming_bookings = $stmt->get_result();
 
 /* -----------------------------------------
-   Active shuttles
+   Active shuttles (STATUS based)
 ----------------------------------------- */
 $stmt = $conn->prepare("
-SELECT 
-    ss.*, 
-    r.Route_Name, 
-    v.Plate_number, 
-    u.Full_Name AS Driver_Name
-FROM shuttle_schedule ss
-JOIN route r ON ss.Route_ID = r.Route_ID
-JOIN vehicle v ON ss.Vehicle_ID = v.Vehicle_ID
-JOIN user u ON ss.Driver_ID = u.User_ID
-WHERE 
-    NOW() BETWEEN ss.Departure_time AND ss.Expected_Arrival
-ORDER BY ss.Expected_Arrival ASC
-LIMIT 3
+    SELECT 
+        ss.*, 
+        r.Route_Name, 
+        v.Plate_number, 
+        u.Full_Name AS Driver_Name
+    FROM shuttle_schedule ss
+    JOIN route r ON ss.Route_ID = r.Route_ID
+    JOIN vehicle v ON ss.Vehicle_ID = v.Vehicle_ID
+    JOIN user u ON ss.Driver_ID = u.User_ID
+    WHERE ss.Status = 'In Progress'
+    ORDER BY ss.Expected_Arrival ASC
+    LIMIT 3
 ");
 $stmt->execute();
 $active_shuttles = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-
 
 /* -----------------------------------------
    Unread notification count

@@ -16,7 +16,6 @@ $stmt = $conn->prepare("
     ORDER BY ss.Departure_time ASC
 ");
 
-
 $stmt->execute();
 $live_shuttles = $stmt->get_result();
 ?>
@@ -24,9 +23,20 @@ $live_shuttles = $stmt->get_result();
 <html>
 <head>
 <title>Live Shuttle Tracking</title>
+
 <style>
-body{ font-family:'Segoe UI'; background:#f5f5f5; }
-.container{ max-width:700px; margin:40px auto; }
+body{
+    font-family:'Segoe UI';
+    background:#f5f5f5;
+}
+
+/* ===== Container ===== */
+.container{
+    max-width:700px;
+    margin:40px auto;
+}
+
+/* ===== Cards ===== */
 .card{
     background:white;
     padding:20px;
@@ -34,6 +44,8 @@ body{ font-family:'Segoe UI'; background:#f5f5f5; }
     margin-bottom:15px;
     border:1px solid #ddd;
 }
+
+/* ===== Track Button ===== */
 .btn{
     display:inline-block;
     margin-top:10px;
@@ -43,29 +55,62 @@ body{ font-family:'Segoe UI'; background:#f5f5f5; }
     border-radius:6px;
     text-decoration:none;
 }
+
+.btn:hover{
+    background:#1976d2;
+}
+
+/* ===== Return Button ===== */
+.return-btn{
+    display:block;
+    width:50%;
+    margin:25px auto;
+    background:#000;
+    color:white;
+    padding:10px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:15px;
+}
+
+.return-btn:hover{
+    background:#333;
+}
 </style>
 </head>
 <body>
 
 <div class="container">
-<h2>🚌 Live Shuttles Right Now</h2>
 
-<?php if ($live_shuttles->num_rows > 0): ?>
-    <?php while ($s = $live_shuttles->fetch_assoc()): ?>
-        <div class="card">
-            <strong><?= htmlspecialchars($s['Route_Name']); ?></strong><br>
-            🕒 <?= date('H:i', strtotime($s['Departure_time'])); ?>
-            → <?= date('H:i', strtotime($s['Expected_Arrival'])); ?><br>
+    <h2>🚌 Live Shuttles Right Now</h2>
 
-            <a class="btn" href="track_route.php?schedule_id=<?= $s['Schedule_ID']; ?>">
-                Track This Shuttle
-            </a>
-        </div>
-    <?php endwhile; ?>
-<?php else: ?>
-    <p>No shuttles are currently running.</p>
-<?php endif; ?>
+    <?php if ($live_shuttles->num_rows > 0): ?>
+        <?php while ($s = $live_shuttles->fetch_assoc()): ?>
+            <div class="card">
+                <strong><?= htmlspecialchars($s['Route_Name']); ?></strong><br>
+                🕒 <?= date('H:i', strtotime($s['Departure_time'])); ?>
+                → <?= date('H:i', strtotime($s['Expected_Arrival'])); ?><br>
+
+                <a class="btn" href="track_route.php?schedule_id=<?= $s['Schedule_ID']; ?>">
+                    Track This Shuttle
+                </a>
+            </div>
+        <?php endwhile; ?>
+    <?php else: ?>
+        <p>No shuttles are currently running.</p>
+    <?php endif; ?>
+
+    <!-- ✅ ALWAYS AT BOTTOM -->
+    <button class="return-btn" onclick="goBack()">Return</button>
 
 </div>
+
+<script>
+function goBack(){
+    window.history.back();
+}
+</script>
+
 </body>
 </html>

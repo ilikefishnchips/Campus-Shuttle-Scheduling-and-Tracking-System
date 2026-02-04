@@ -114,6 +114,8 @@ th{ background:#f9f9f9; }
 </head>
 <body>
 
+<?php include 'driver_navbar.php'; ?>
+
 <div class="container">
 
 <h1>🧑‍🎓 Passenger List</h1>

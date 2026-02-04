@@ -173,6 +173,9 @@ button{
 </head>
 
 <body>
+
+<?php include 'driver_navbar.php'; ?>
+
 <div class="container">
 
 <h1>🛣️ My Assigned Routes</h1>

@@ -59,27 +59,62 @@ if (count($stops) === 0) {
 body{
     margin:0;
     font-family:'Segoe UI', Tahoma;
+    background:#f5f5f5;
 }
+
+/* ===== Header ===== */
 .header{
     padding:15px 25px;
     background:#fff;
     border-bottom:1px solid #ddd;
 }
-#map{
-    height:88vh;
-    width:100%;
+
+.header-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
 }
+
+.header h2{
+    margin:0;
+}
+
+/* ===== Return Button ===== */
+.return-btn{
+    padding:8px 16px;
+    font-size:14px;
+    border:none;
+    background:#000;
+    color:#fff;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.return-btn:hover{
+    background:#333;
+}
+
 .status{
     margin-top:5px;
     font-size:14px;
     color:#555;
+}
+
+/* ===== Map ===== */
+#map{
+    height:88vh;
+    width:100%;
 }
 </style>
 </head>
 <body>
 
 <div class="header">
-    <h2>🚌 Live Shuttle Tracking</h2>
+    <div class="header-top">
+        <h2>🚌 Live Shuttle Tracking</h2>
+        <button class="return-btn" onclick="goBack()">Return</button>
+    </div>
+
     <strong>Route:</strong> <?= htmlspecialchars($route['Route_Name']); ?><br>
     <div id="currentStop">Preparing tracking…</div>
     <div class="status" id="nextStop"></div>
@@ -89,6 +124,12 @@ body{
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+function goBack(){
+    window.history.back();
+}
+</script>
 
 <script>
 const stops = <?= json_encode($stops); ?>;
@@ -127,7 +168,6 @@ let busMarker = L.marker(
 function updateBus(){
     const now = new Date().getTime();
 
-    // Not started
     if (now < departureTime) {
         document.getElementById('currentStop').innerText =
             "⏳ Shuttle has not started yet";
@@ -137,7 +177,6 @@ function updateBus(){
         return;
     }
 
-    // Completed
     if (now > arrivalTime) {
         const last = stops[stops.length - 1];
         busMarker.setLatLng([last.Latitude, last.Longitude]);
@@ -150,7 +189,6 @@ function updateBus(){
         return;
     }
 
-    // In progress
     const minutesPassed = Math.floor((now - departureTime) / 60000);
 
     let currentStop = stops[0];
