@@ -17,6 +17,31 @@ $stmt->execute();
 $result = $stmt->get_result();
 $coordinator = $result->fetch_assoc();
 
+// Get unread notifications count
+$unread_count_sql = "SELECT COUNT(*) as count FROM notifications WHERE User_ID = ? AND Status = 'Unread'";
+$stmt = $conn->prepare($unread_count_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$unread_result = $stmt->get_result();
+$unread_count = $unread_result->fetch_assoc()['count'];
+
+// Get recent notifications (last 5)
+$recent_notifications_sql = "
+    SELECT n.*, r.Route_Name, ss.Departure_time
+    FROM notifications n
+    LEFT JOIN route r ON n.Related_Route_ID = r.Route_ID
+    LEFT JOIN shuttle_schedule ss ON n.Related_Schedule_ID = ss.Schedule_ID
+    WHERE n.User_ID = ? 
+    AND n.Status != 'Deleted'
+    ORDER BY n.Created_At DESC
+    LIMIT 5
+";
+$stmt = $conn->prepare($recent_notifications_sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$notifications_result = $stmt->get_result();
+$recent_notifications = $notifications_result->fetch_all(MYSQLI_ASSOC);
+
 // Get system statistics
 $active_shuttles = $conn->query("SELECT COUNT(*) as count FROM shuttle_schedule WHERE Status = 'In Progress'")->fetch_assoc()['count'];
 $today_schedules = $conn->query("SELECT COUNT(*) as count FROM shuttle_schedule WHERE DATE(Departure_time) = CURDATE()")->fetch_assoc()['count'];
@@ -67,6 +92,7 @@ $vehicle_status = $conn->query("
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -110,10 +136,216 @@ $vehicle_status = $conn->query("
             width: auto;
         }
         
-        .admin-profile {
+        .navbar-center {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+        
+        .nav-link {
+            text-decoration: none;
+            color: #555;
+            font-weight: 500;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .nav-link:hover {
+            background: #f0f0f0;
+            color: #9C27B0;
+        }
+        
+        .navbar-right {
             display: flex;
             align-items: center;
             gap: 20px;
+        }
+        
+        .notification-container {
+            position: relative;
+        }
+        
+        .notification-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            position: relative;
+            transition: all 0.3s;
+        }
+        
+        .notification-btn:hover {
+            background: #f0f0f0;
+        }
+        
+        .notification-icon {
+            font-size: 20px;
+            color: #555;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #F44336;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .notification-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 350px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 1001;
+            margin-top: 10px;
+        }
+        
+        .notification-header {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .notification-header h3 {
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .mark-all-read {
+            background: #9C27B0;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .mark-all-read:hover {
+            background: #7B1FA2;
+        }
+        
+        .notification-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .notification-item {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .notification-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .notification-item.unread {
+            background: #f0f7ff;
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .notification-type {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #e0e0e0;
+            color: #666;
+        }
+        
+        .notification-message {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.4;
+            margin-bottom: 8px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .notification-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #999;
+        }
+        
+        .notification-footer {
+            padding: 15px;
+            text-align: center;
+            border-top: 1px solid #eee;
+        }
+        
+        .no-notifications {
+            padding: 40px 20px;
+            text-align: center;
+            color: #999;
+        }
+        
+        .priority-badge-notification {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        
+        .priority-urgent {
+            background: #F44336;
+            color: white;
+        }
+        
+        .priority-high {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .priority-normal {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .priority-low {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .admin-profile {
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
         
         .profile-pic {
@@ -122,12 +354,6 @@ $vehicle_status = $conn->query("
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid #f0f0f0;
-        }
-        
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
         }
         
         .user-badge {
@@ -523,6 +749,10 @@ $vehicle_status = $conn->query("
             .dashboard-grid {
                 grid-template-columns: 1fr;
             }
+            
+            .nav-links {
+                display: none;
+            }
         }
         
         @media (max-width: 768px) {
@@ -533,6 +763,11 @@ $vehicle_status = $conn->query("
             
             .navbar {
                 padding: 10px;
+            }
+            
+            .notification-dropdown {
+                width: 300px;
+                right: -50px;
             }
             
             .admin-profile {
@@ -563,6 +798,11 @@ $vehicle_status = $conn->query("
                 grid-template-columns: 1fr;
             }
             
+            .notification-dropdown {
+                width: 280px;
+                right: -80px;
+            }
+            
             .admin-profile {
                 flex-direction: column;
                 align-items: flex-end;
@@ -577,14 +817,82 @@ $vehicle_status = $conn->query("
         <div class="navbar-container">
             <div class="navbar-logo">
                 <img src="../assets/mmuShuttleLogo2.png" alt="Logo" class="logo-icon">
-            </div>            
-            <div class="admin-profile">
-                <img src="../assets/mmuShuttleLogo2.png" alt="Coordinator" class="profile-pic">
-                <div class="user-badge">
-                    <?php echo $_SESSION['username']; ?> 
+            </div>  
+            
+            <div class="navbar-center">
+                <ul class="nav-links">
+                    <li><a href="index.php" class="nav-link">Dashboard</a></li>
+                    <li><a href="manageRoutePage.php" class="nav-link">Routes</a></li>
+                    <li><a href="../coordinator/createSchedule.php" class="nav-link">Schedules</a></li>
+                    <li><a href="incident_management.php" class="nav-link">Incidents</a></li>
+                    <li><a href="vehicle_management.php" class="nav-link">Vehicles</a></li>
+                    <li><a href="/reports.php" class="nav-link">Reports</a></li>
+                </ul>
+            </div>
+            
+            <div class="navbar-right">
+                <!-- Notification Bell -->
+                <div class="notification-container">
+                    <button class="notification-btn" id="notificationBtn">
+                        <i class="fas fa-bell notification-icon"></i>
+                        <?php if($unread_count > 0): ?>
+                            <span class="notification-badge"><?php echo $unread_count; ?></span>
+                        <?php endif; ?>
+                    </button>
+                    
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <h3>Notifications</h3>
+                            <?php if($unread_count > 0): ?>
+                                <button class="mark-all-read" onclick="markAllAsRead()">Mark All Read</button>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <div class="notification-list">
+                            <?php if(count($recent_notifications) > 0): ?>
+                                <?php foreach($recent_notifications as $notification): ?>
+                                    <div class="notification-item <?php echo $notification['Status'] == 'Unread' ? 'unread' : ''; ?>" 
+                                         onclick="markAsRead(<?php echo $notification['Notification_ID']; ?>)">
+                                        <div class="notification-title">
+                                            <span><?php echo $notification['Title']; ?></span>
+                                            <span class="priority-badge-notification priority-<?php echo strtolower($notification['Priority']); ?>">
+                                                <?php echo $notification['Priority']; ?>
+                                            </span>
+                                        </div>
+                                        <div class="notification-message">
+                                            <?php echo substr($notification['Message'], 0, 100); ?>
+                                            <?php if(strlen($notification['Message']) > 100): ?>...<?php endif; ?>
+                                        </div>
+                                        <div class="notification-meta">
+                                            <span>
+                                                <span class="notification-type"><?php echo str_replace('_', ' ', $notification['Type']); ?></span>
+                                                <?php if($notification['Route_Name']): ?>
+                                                    • Route: <?php echo $notification['Route_Name']; ?>
+                                                <?php endif; ?>
+                                            </span>
+                                            <span><?php echo date('M d, H:i', strtotime($notification['Created_At'])); ?></span>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div class="no-notifications">
+                                    <i class="fas fa-bell-slash" style="font-size: 2rem; margin-bottom: 10px; color: #ddd;"></i>
+                                    <p>No notifications yet</p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
-                <div class="profile-menu">
-                    <button class="logout-btn" onclick="window.location.href='../logout.php'">Logout</button>
+                
+                <!-- Admin Profile -->
+                <div class="admin-profile">
+                    <img src="../assets/mmuShuttleLogo2.png" alt="Coordinator" class="profile-pic">
+                    <div class="user-badge">
+                        <?php echo $_SESSION['username']; ?> 
+                    </div>
+                    <div class="profile-menu">
+                        <button class="logout-btn" onclick="logout()">Logout</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -738,14 +1046,17 @@ $vehicle_status = $conn->query("
                 <div class="section-card">
                     <h3 class="section-title">Quick Actions</h3>
                     <div class="quick-actions">
-                        <button class="action-btn" onclick="window.location.href='manageRoutePage.php'">
-                            🗺️ Manage Routes
+                        <button class="action-btn" onclick="window.location.href='../coordinator/createSchedule.php'">
+                            <i class="fas fa-calendar-plus"></i> Create Schedule
                         </button>
-                        <button class="action-btn secondary" onclick="window.location.href='assignDriver.php'">
-                            👨‍✈️ Assign Driver
+                        <button class="action-btn secondary" onclick="window.location.href='manageRoutePage.php'">
+                            <i class="fas fa-route"></i> Manage Routes
+                        </button>
+                        <button class="action-btn secondary" onclick="window.location.href='/assignDriver.php'">
+                            <i class="fas fa-user-tie"></i> Assign Driver
                         </button>
                         <button class="action-btn secondary" onclick="window.location.href='/reports.php'">
-                            📊 Incident Reports
+                            <i class="fas fa-chart-bar"></i> Generate Report
                         </button>
                     </div>
                 </div>
@@ -783,11 +1094,79 @@ $vehicle_status = $conn->query("
                         </div>
                     </div>
                 </div>
+                
+                <!-- Quick Links -->
+                <div class="quick-links">
+                    <h3>Quick Access Links</h3>
+                    <div class="links-list">
+                        <a href="../coordinator/createSchedule.php" class="link-item">Create Schedule</a>
+                        <a href="manageRoutePage.php" class="link-item">Manage Routes</a>
+                        <a href="/assignDriver.php" class="link-item">Assign Driver</a>
+                        <a href="/reports.php" class="link-item">Generate Report</a>
+                        <a href="incident_management.php" class="link-item">Incident Reports</a>
+                        <a href="vehicle_management.php" class="link-item">Vehicle Management</a>
+                        <a href="schedule_calendar.php" class="link-item">Schedule Calendar</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     
     <script>
+        // Notification dropdown functionality
+        const notificationBtn = document.getElementById('notificationBtn');
+        const notificationDropdown = document.getElementById('notificationDropdown');
+        
+        // Toggle notification dropdown
+        notificationBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            notificationDropdown.style.display = notificationDropdown.style.display === 'block' ? 'none' : 'block';
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!notificationBtn.contains(e.target) && !notificationDropdown.contains(e.target)) {
+                notificationDropdown.style.display = 'none';
+            }
+        });
+        
+        // Mark single notification as read
+        function markAsRead(notificationId) {
+            // Create a form to submit the request
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'mark_notification_read.php';
+            
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'notification_id';
+            input.value = notificationId;
+            
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+        
+        // Mark all notifications as read
+        function markAllAsRead() {
+            if(confirm('Mark all notifications as read?')) {
+                // Create a form to submit the request
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'mark_all_notifications_read.php';
+                
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'user_id';
+                input.value = <?php echo $user_id; ?>;
+                
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+        
+        // Logout function
         function logout() {
             if(confirm('Are you sure you want to logout?')) {
                 window.location.href = '../logout.php';
