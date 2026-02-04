@@ -250,7 +250,7 @@ body{ background:#f2f2f2; }
 <div class="quick-actions">
 <button class="action-btn" onclick="location.href='driver_routes.php'">🛣️ View All Routes</button>
 <button class="action-btn" onclick="location.href='view_passengers.php'">🧑‍🎓 View Passengers</button>
-<button class="action-btn" onclick="location.href='driver_reports.php'">🚨 Incident Reports</button>
+<button class="action-btn" onclick="location.href='report_incident.php'">🚨 Incident Reports</button>
 
 <button class="action-btn" onclick="location.href='driver_notification.php'">
     🔔 Notifications

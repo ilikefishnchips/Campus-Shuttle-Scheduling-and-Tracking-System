@@ -260,6 +260,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $stop_orders = $_POST['stop_order'];
                             $estimated_times = $_POST['estimated_time'];
                             
+                            // ADD THESE TWO LINES FOR GPS COORDINATES
+                            $latitudes = isset($_POST['latitude']) ? $_POST['latitude'] : array_fill(0, count($stop_names), '2.94410000');
+                            $longitudes = isset($_POST['longitude']) ? $_POST['longitude'] : array_fill(0, count($stop_names), '101.87400000');
+                            
                             $total_stops = count($stop_names);
                             
                             // Update total stops in route table
@@ -268,18 +272,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $update_stops_stmt->bind_param("ii", $total_stops, $route_id);
                             $update_stops_stmt->execute();
                             
-                            // Insert each stop
-                            $stop_sql = "INSERT INTO route_stops (Route_ID, Stop_Name, Stop_Order, Estimated_Time_From_Start) 
-                                        VALUES (?, ?, ?, ?)";
+                            // REPLACE INSERT SQL WITH THIS (adds Latitude, Longitude)
+                            $stop_sql = "INSERT INTO route_stops (Route_ID, Stop_Name, Stop_Order, Estimated_Time_From_Start, Latitude, Longitude) 
+                                        VALUES (?, ?, ?, ?, ?, ?)";
                             $stop_stmt = $conn->prepare($stop_sql);
                             
                             for ($i = 0; $i < count($stop_names); $i++) {
                                 $stop_name = trim($stop_names[$i]);
                                 $stop_order_val = intval($stop_orders[$i]);
                                 $estimated_time_val = intval($estimated_times[$i]);
+                                $latitude_val = floatval($latitudes[$i]);
+                                $longitude_val = floatval($longitudes[$i]);
                                 
                                 if (!empty($stop_name)) {
-                                    $stop_stmt->bind_param("isii", $route_id, $stop_name, $stop_order_val, $estimated_time_val);
+                                    $stop_stmt->bind_param("isiidd", $route_id, $stop_name, $stop_order_val, 
+                                                          $estimated_time_val, $latitude_val, $longitude_val);
                                     $stop_stmt->execute();
                                 }
                             }
@@ -396,6 +403,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $stop_orders = $_POST['stop_order'];
                             $estimated_times = $_POST['estimated_time'];
                             
+                            // ADD THESE TWO LINES FOR GPS COORDINATES
+                            $latitudes = isset($_POST['latitude']) ? $_POST['latitude'] : array_fill(0, count($stop_names), '2.94410000');
+                            $longitudes = isset($_POST['longitude']) ? $_POST['longitude'] : array_fill(0, count($stop_names), '101.87400000');
+                            
                             $total_stops = count($stop_names);
                             
                             // Update total stops in route table
@@ -404,18 +415,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $update_stops_stmt->bind_param("ii", $total_stops, $route_id);
                             $update_stops_stmt->execute();
                             
-                            // Insert each stop
-                            $stop_sql = "INSERT INTO route_stops (Route_ID, Stop_Name, Stop_Order, Estimated_Time_From_Start) 
-                                        VALUES (?, ?, ?, ?)";
+                            // REPLACE INSERT SQL WITH THIS (adds Latitude, Longitude)
+                            $stop_sql = "INSERT INTO route_stops (Route_ID, Stop_Name, Stop_Order, Estimated_Time_From_Start, Latitude, Longitude) 
+                                        VALUES (?, ?, ?, ?, ?, ?)";
                             $stop_stmt = $conn->prepare($stop_sql);
                             
                             for ($i = 0; $i < count($stop_names); $i++) {
                                 $stop_name = trim($stop_names[$i]);
                                 $stop_order_val = intval($stop_orders[$i]);
                                 $estimated_time_val = intval($estimated_times[$i]);
+                                $latitude_val = floatval($latitudes[$i]);
+                                $longitude_val = floatval($longitudes[$i]);
                                 
                                 if (!empty($stop_name)) {
-                                    $stop_stmt->bind_param("isii", $route_id, $stop_name, $stop_order_val, $estimated_time_val);
+                                    $stop_stmt->bind_param("isiidd", $route_id, $stop_name, $stop_order_val, 
+                                                          $estimated_time_val, $latitude_val, $longitude_val);
                                     $stop_stmt->execute();
                                 }
                             }
@@ -550,6 +564,10 @@ $unread_count = $unread_result->fetch_assoc()['count'];
     <link rel="stylesheet" href="../css/admin/style.css">
     <link rel="stylesheet" href="../css/admin/dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- ADD THESE LEAFLET LINES HERE -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    
     <style>
         .manage-routes-container {
             padding: 30px;
@@ -870,7 +888,7 @@ $unread_count = $unread_result->fetch_assoc()['count'];
         
         .stop-item {
             display: grid;
-            grid-template-columns: 1fr 100px 120px 40px;
+            grid-template-columns: 1fr 100px 120px 150px 40px;
             gap: 15px;
             align-items: center;
             margin-bottom: 15px;
@@ -1043,6 +1061,96 @@ $unread_count = $unread_result->fetch_assoc()['count'];
             font-weight: bold;
         }
         
+        /* Add these for OpenStreetMap */
+        .pick-location-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+        
+        .pick-location-btn:hover {
+            background: #138496;
+        }
+        
+        /* Map modal styles */
+        .map-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .map-modal-content {
+            background: white;
+            width: 90%;
+            height: 85%;
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .map-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .map-container {
+            flex: 1;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        #map, #routeMap {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .map-coordinates {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .coord-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+        
+        .map-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
         @media (max-width: 1200px) {
             .manage-routes-container {
                 padding: 15px;
@@ -1076,6 +1184,10 @@ $unread_count = $unread_result->fetch_assoc()['count'];
             .action-btn {
                 width: 100%;
                 justify-content: center;
+            }
+            
+            .map-coordinates {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -1274,6 +1386,16 @@ $unread_count = $unread_result->fetch_assoc()['count'];
                                         <input type="number" name="estimated_time[]" class="form-control" 
                                                value="<?php echo $stop['Estimated_Time_From_Start']; ?>" min="0" required>
                                     </div>
+                                    <!-- GPS hidden fields -->
+                                    <input type="hidden" name="latitude[]" class="lat-input" 
+                                           value="<?php echo isset($stop['Latitude']) ? htmlspecialchars($stop['Latitude']) : '2.94410000'; ?>">
+                                    <input type="hidden" name="longitude[]" class="lng-input" 
+                                           value="<?php echo isset($stop['Longitude']) ? htmlspecialchars($stop['Longitude']) : '101.87400000'; ?>">
+                                    <div>
+                                        <button type="button" class="add-stop-btn pick-location-btn" onclick="openMapPicker(this)">
+                                            <i class="fas fa-map-marker-alt"></i> Pick Location
+                                        </button>
+                                    </div>
                                     <div>
                                         <button type="button" class="remove-stop" onclick="removeStop(this)">
                                             <i class="fas fa-times"></i>
@@ -1287,8 +1409,7 @@ $unread_count = $unread_result->fetch_assoc()['count'];
                                 <div>
                                     <div class="stop-label">Stop Name</div>
                                     <input type="text" name="stop_name[]" class="form-control" 
-                                           value="Start Point" placeholder="e.g., Main Gate" required readonly>
-                                    <small style="color: #666; font-size: 12px;">Automatically set as start location</small>
+                                           value="Start Point" placeholder="e.g., Main Gate" required>
                                 </div>
                                 <div>
                                     <div class="stop-label">Stop Order</div>
@@ -1297,6 +1418,14 @@ $unread_count = $unread_result->fetch_assoc()['count'];
                                 <div>
                                     <div class="stop-label">Est. Time From Start (min)</div>
                                     <input type="number" name="estimated_time[]" class="form-control" value="0" min="0" required readonly>
+                                </div>
+                                <!-- GPS hidden fields -->
+                                <input type="hidden" name="latitude[]" class="lat-input" value="2.94410000">
+                                <input type="hidden" name="longitude[]" class="lng-input" value="101.87400000">
+                                <div>
+                                    <button type="button" class="add-stop-btn pick-location-btn" onclick="openMapPicker(this)">
+                                        <i class="fas fa-map-marker-alt"></i> Pick Location
+                                    </button>
                                 </div>
                                 <div>
                                     <button type="button" class="remove-stop" disabled>
@@ -1335,7 +1464,7 @@ $unread_count = $unread_result->fetch_assoc()['count'];
                                 <th style="width: 80px;">Duration</th>
                                 <th style="width: 120px;">Times</th>
                                 <th style="width: 80px;">Status</th>
-                                <th style="width: 150px;">Actions</th>
+                                <th style="width: 180px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1359,7 +1488,7 @@ $unread_count = $unread_result->fetch_assoc()['count'];
                                     <td>
                                         <?php 
                                         // 获取停站点路径
-                                        $stop_sql = "SELECT Stop_Name FROM route_stops WHERE Route_ID = ? ORDER BY Stop_Order";
+                                        $stop_sql = "SELECT Stop_Name, Latitude, Longitude FROM route_stops WHERE Route_ID = ? ORDER BY Stop_Order";
                                         $stop_stmt = $conn->prepare($stop_sql);
                                         $stop_stmt->bind_param("i", $route['Route_ID']);
                                         $stop_stmt->execute();
@@ -1370,21 +1499,31 @@ $unread_count = $unread_result->fetch_assoc()['count'];
                                             echo '<div class="route-path">';
                                             foreach ($stops as $index => $stop) {
                                                 $stop_name = htmlspecialchars($stop['Stop_Name']);
+                                                $has_coords = !empty($stop['Latitude']) && !empty($stop['Longitude']) && $stop['Latitude'] != '0.00000000';
                                                 
                                                 // 确定样式
                                                 if ($index === 0) {
-                                                    echo '<span class="path-stop path-start" title="Start Point">';
+                                                    echo '<span class="path-stop path-start" title="Start Point' . ($has_coords ? ' (Has GPS)' : ' (No GPS)') . '">';
                                                     echo '<i class="fas fa-play-circle" style="margin-right: 3px;"></i>';
                                                     echo $stop_name;
+                                                    if ($has_coords) {
+                                                        echo ' <i class="fas fa-map-marker-alt" style="font-size: 8px; margin-left: 3px;"></i>';
+                                                    }
                                                     echo '</span>';
                                                 } elseif ($index === count($stops) - 1) {
-                                                    echo '<span class="path-stop path-end" title="End Point">';
+                                                    echo '<span class="path-stop path-end" title="End Point' . ($has_coords ? ' (Has GPS)' : ' (No GPS)') . '">';
                                                     echo '<i class="fas fa-flag-checkered" style="margin-right: 3px;"></i>';
                                                     echo $stop_name;
+                                                    if ($has_coords) {
+                                                        echo ' <i class="fas fa-map-marker-alt" style="font-size: 8px; margin-left: 3px;"></i>';
+                                                    }
                                                     echo '</span>';
                                                 } else {
-                                                    echo '<span class="path-stop path-middle">';
+                                                    echo '<span class="path-stop path-middle" title="' . $stop_name . ($has_coords ? ' (Has GPS)' : ' (No GPS)') . '">';
                                                     echo ($index + 1) . '. ' . $stop_name;
+                                                    if ($has_coords) {
+                                                        echo ' <i class="fas fa-map-marker-alt" style="font-size: 8px; margin-left: 3px;"></i>';
+                                                    }
                                                     echo '</span>';
                                                 }
                                                 
@@ -1457,6 +1596,13 @@ $unread_count = $unread_result->fetch_assoc()['count'];
                                                 </form>
                                             <?php endif; ?>
                                             
+                                            <!-- Add view map button -->
+                                            <a href="#" onclick="viewRouteOnMap(<?php echo $route['Route_ID']; ?>)" 
+                                               class="action-btn" 
+                                               style="background: #17a2b8; color: white; text-decoration: none; padding: 6px 10px; border-radius: 4px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                                                <i class="fas fa-map"></i> Map
+                                            </a>
+                                            
                                             <form method="POST" action="" style="display: inline;" 
                                                   onsubmit="return confirmDelete(<?php echo $route['Route_ID']; ?>, '<?php echo htmlspecialchars(addslashes($route['Route_Name'])); ?>', <?php echo $route['Active_Schedules']; ?>)">
                                                 <input type="hidden" name="action" value="delete_route">
@@ -1524,9 +1670,118 @@ $unread_count = $unread_result->fetch_assoc()['count'];
         </div>
     </div>
     
+    <!-- Map Picker Modal -->
+    <div class="map-modal" id="mapModal">
+        <div class="map-modal-content">
+            <div class="map-header">
+                <h3 style="margin: 0;">Select Stop Location on Map</h3>
+                <button onclick="closeMap()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">✖</button>
+            </div>
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+            <div class="map-coordinates">
+                <div>
+                    <label style="font-weight: 500; display: block; margin-bottom: 5px;">Latitude</label>
+                    <input type="text" id="selectedLat" class="coord-input" readonly>
+                </div>
+                <div>
+                    <label style="font-weight: 500; display: block; margin-bottom: 5px;">Longitude</label>
+                    <input type="text" id="selectedLng" class="coord-input" readonly>
+                </div>
+            </div>
+            <div class="map-actions">
+                <button onclick="closeMap()" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button onclick="saveLocation()" style="background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Save Location</button>
+            </div>
+        </div>
+    </div>
+    
     <script>
         // Add new stop field
         let stopCounter = <?php echo $edit_mode && !empty($route_stops) ? count($route_stops) : 1; ?>;
+        let map, marker, activeStop;
+        
+        // Open map picker
+        function openMapPicker(button) {
+            activeStop = button.closest('.stop-item');
+            document.getElementById('mapModal').style.display = 'flex';
+            
+            // Get current coordinates from the stop
+            const currentLat = activeStop.querySelector('.lat-input').value || 2.9441;
+            const currentLng = activeStop.querySelector('.lng-input').value || 101.8740;
+            
+            setTimeout(() => {
+                if (!map) {
+                    map = L.map('map').setView([currentLat, currentLng], 16);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    }).addTo(map);
+                    
+                    // Add marker if coordinates exist
+                    if (currentLat && currentLng && currentLat != '0' && currentLng != '0') {
+                        marker = L.marker([currentLat, currentLng]).addTo(map);
+                        marker.bindPopup("Current stop location").openPopup();
+                    }
+                } else {
+                    map.setView([currentLat, currentLng], 16);
+                    if (marker) {
+                        marker.setLatLng([currentLat, currentLng]);
+                    }
+                }
+                
+                // Update coordinates display
+                document.getElementById('selectedLat').value = currentLat;
+                document.getElementById('selectedLng').value = currentLng;
+                
+                // Add click event for map
+                map.on('click', function(e) {
+                    const lat = e.latlng.lat.toFixed(8);
+                    const lng = e.latlng.lng.toFixed(8);
+                    
+                    document.getElementById('selectedLat').value = lat;
+                    document.getElementById('selectedLng').value = lng;
+                    
+                    if (marker) {
+                        marker.setLatLng(e.latlng);
+                    } else {
+                        marker = L.marker(e.latlng).addTo(map);
+                    }
+                    marker.bindPopup("Selected location: " + lat + ", " + lng).openPopup();
+                });
+                
+                map.invalidateSize();
+            }, 300);
+        }
+        
+        // Save selected location
+        function saveLocation() {
+            const lat = document.getElementById('selectedLat').value;
+            const lng = document.getElementById('selectedLng').value;
+            
+            if (activeStop && lat && lng) {
+                activeStop.querySelector('.lat-input').value = lat;
+                activeStop.querySelector('.lng-input').value = lng;
+                
+                // Show confirmation on button
+                const btn = activeStop.querySelector('.pick-location-btn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i> Location Saved';
+                btn.style.background = '#28a745';
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '#17a2b8';
+                }, 2000);
+            }
+            
+            closeMap();
+        }
+        
+        // Close map modal
+        function closeMap() {
+            document.getElementById('mapModal').style.display = 'none';
+        }
         
         // Add new departure time field
         function addDepartureTime() {
@@ -1562,6 +1817,7 @@ $unread_count = $unread_result->fetch_assoc()['count'];
             }
         }
         
+        // Add new stop field with location picker
         function addStop() {
             stopCounter++;
             const stopsList = document.getElementById('stopsList');
@@ -1579,6 +1835,14 @@ $unread_count = $unread_result->fetch_assoc()['count'];
                 <div>
                     <div class="stop-label">Est. Time From Start (min)</div>
                     <input type="number" name="estimated_time[]" class="form-control" value="5" min="0" required>
+                </div>
+                <!-- GPS hidden fields -->
+                <input type="hidden" name="latitude[]" class="lat-input" value="2.94410000">
+                <input type="hidden" name="longitude[]" class="lng-input" value="101.87400000">
+                <div>
+                    <button type="button" class="add-stop-btn pick-location-btn" onclick="openMapPicker(this)">
+                        <i class="fas fa-map-marker-alt"></i> Pick Location
+                    </button>
                 </div>
                 <div>
                     <button type="button" class="remove-stop" onclick="removeStop(this)">
@@ -1624,6 +1888,119 @@ $unread_count = $unread_result->fetch_assoc()['count'];
             }
             
             return confirm(`Are you sure you want to delete route "${routeName}" (ID: ${routeId})?\n\nThis action will also delete all associated stops, departure times, and cannot be undone.`);
+        }
+        
+        // View route on map
+        function viewRouteOnMap(routeId) {
+            // Create a new modal for viewing the route map
+            const modal = document.createElement('div');
+            modal.className = 'map-modal';
+            modal.style.display = 'flex';
+            modal.innerHTML = `
+                <div class="map-modal-content" style="width: 95%; height: 90%;">
+                    <div class="map-header">
+                        <h3 style="margin: 0;">Route Map View</h3>
+                        <button onclick="this.closest('.map-modal').remove()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">✖</button>
+                    </div>
+                    <div class="map-container">
+                        <div id="routeMap" style="width: 100%; height: 100%;"></div>
+                    </div>
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 5px; margin-top: 15px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="font-weight: 500; display: block; margin-bottom: 5px;">Loading route stops...</label>
+                                <div id="routeStopsList" style="max-height: 150px; overflow-y: auto;"></div>
+                            </div>
+                            <div>
+                                <label style="font-weight: 500; display: block; margin-bottom: 5px;">Route Information</label>
+                                <div id="routeInfo"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Fetch route data and display map
+            setTimeout(() => {
+                // Initialize map
+                const routeMap = L.map('routeMap').setView([2.9441, 101.8740], 14);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(routeMap);
+                
+                // Fetch route stops via AJAX
+                fetch(`get_route_stops.php?route_id=${routeId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const stops = data.stops;
+                            const routeInfo = data.route_info;
+                            
+                            // Display route info
+                            document.getElementById('routeInfo').innerHTML = `
+                                <div><strong>Route:</strong> ${routeInfo.Route_Name}</div>
+                                <div><strong>From:</strong> ${routeInfo.Start_Location}</div>
+                                <div><strong>To:</strong> ${routeInfo.End_Location}</div>
+                                <div><strong>Duration:</strong> ${routeInfo.Estimated_Duration_Minutes} min</div>
+                                <div><strong>Stops:</strong> ${stops.length}</div>
+                            `;
+                            
+                            // Display stops list
+                            let stopsHtml = '';
+                            stops.forEach((stop, index) => {
+                                stopsHtml += `
+                                    <div style="padding: 5px 0; border-bottom: 1px solid #eee; font-size: 12px;">
+                                        <strong>${stop.Stop_Order}. ${stop.Stop_Name}</strong><br>
+                                        <small>${stop.Latitude}, ${stop.Longitude}</small>
+                                    </div>
+                                `;
+                            });
+                            document.getElementById('routeStopsList').innerHTML = stopsHtml;
+                            
+                            // Add markers and draw route
+                            let markers = [];
+                            let routeCoordinates = [];
+                            
+                            stops.forEach((stop, index) => {
+                                const lat = parseFloat(stop.Latitude);
+                                const lng = parseFloat(stop.Longitude);
+                                
+                                if (lat && lng) {
+                                    routeCoordinates.push([lat, lng]);
+                                    
+                                    const marker = L.marker([lat, lng]).addTo(routeMap);
+                                    marker.bindPopup(`
+                                        <b>Stop ${stop.Stop_Order}: ${stop.Stop_Name}</b><br>
+                                        Time: ${stop.Estimated_Time_From_Start} min<br>
+                                        Lat: ${lat.toFixed(6)}<br>
+                                        Lng: ${lng.toFixed(6)}
+                                    `);
+                                    
+                                    markers.push(marker);
+                                }
+                            });
+                            
+                            // Draw route line
+                            if (routeCoordinates.length > 1) {
+                                L.polyline(routeCoordinates, {color: 'blue', weight: 3}).addTo(routeMap);
+                            }
+                            
+                            // Fit bounds to show all markers
+                            if (markers.length > 0) {
+                                const group = new L.featureGroup(markers);
+                                routeMap.fitBounds(group.getBounds().pad(0.1));
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading route data:', error);
+                        document.getElementById('routeInfo').innerHTML = 'Error loading route data';
+                    });
+                
+                routeMap.invalidateSize();
+            }, 300);
         }
         
         // Form validation
@@ -1679,6 +2056,28 @@ $unread_count = $unread_result->fetch_assoc()['count'];
                     }
                 });
                 
+                // Validate GPS coordinates
+                const latInputs = document.querySelectorAll('.lat-input');
+                const lngInputs = document.querySelectorAll('.lng-input');
+                
+                latInputs.forEach((input, index) => {
+                    if (!input.value || input.value.trim() === '' || input.value === '0') {
+                        alert('Please set location for all stops using "Pick Location" button. Missing location for stop ' + (index + 1));
+                        hasError = true;
+                        // Focus on the pick location button
+                        const stopItem = input.closest('.stop-item');
+                        const pickBtn = stopItem.querySelector('.pick-location-btn');
+                        if (pickBtn) {
+                            pickBtn.style.background = '#dc3545';
+                            pickBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Location Required';
+                            setTimeout(() => {
+                                pickBtn.style.background = '#17a2b8';
+                                pickBtn.innerHTML = '<i class="fas fa-map-marker-alt"></i> Pick Location';
+                            }, 3000);
+                        }
+                    }
+                });
+                
                 // Validate stop names
                 stopNames.forEach((input, index) => {
                     if (index > 0 && !input.value.trim()) { // Skip first stop (start point)
@@ -1723,6 +2122,13 @@ $unread_count = $unread_result->fetch_assoc()['count'];
                 button.addEventListener('click', function() {
                     setTimeout(updateStopOrders, 100);
                 });
+            });
+            
+            // Close map modal when clicking outside
+            document.getElementById('mapModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeMap();
+                }
             });
         });
     </script>
