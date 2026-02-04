@@ -142,6 +142,7 @@ function generateIncidentReport($conn, $date_from, $date_to) {
                 ir.Description as Full_Description,
                 ir.Priority,
                 ir.Status,
+                ir.admin_status,
                 ir.Report_time,
                 ir.Resolved_Time,
                 u.Full_Name as Reporter_Name,
@@ -468,6 +469,7 @@ function generateOverviewReport($conn) {
             LEFT(ir.Description, 50) as Description,
             ir.Priority,
             ir.Status,
+            ir.admin_status,
             ir.Report_time,
             u.Full_Name as Reporter_Name,
             v.Plate_number as Vehicle
@@ -596,7 +598,7 @@ function exportReport($conn, $report_type, $date_from, $date_to, $route_id, $sta
         case 'incident_summary':
             $data = generateIncidentReport($conn, $date_from, $date_to);
             $report_data = $data['summary']['data'];
-            $headers = ['Incident ID', 'Incident Type', 'Priority', 'Status', 'Report Time', 'Resolved Time', 'Resolution Hours', 'Reporter Name', 'Vehicle Plate'];
+            $headers = ['Incident ID', 'Incident Type', 'Priority', 'Status', 'Admin Status', 'Report Time', 'Resolved Time', 'Resolution Hours', 'Reporter Name', 'Vehicle Plate'];
             break;
         
         case 'shuttle_usage':
@@ -650,6 +652,271 @@ function exportReport($conn, $report_type, $date_from, $date_to, $route_id, $sta
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* Incident Details Modal Styles */
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #333;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .close-modal:hover {
+            color: #f44336;
+        }
+
+        /* Incident Details Content */
+        .incident-details {
+            font-size: 14px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .detail-item {
+            margin-bottom: 8px;
+        }
+
+        .detail-item strong {
+            display: inline-block;
+            min-width: 120px;
+            color: #495057;
+        }
+
+        .details-section {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .details-section h4 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .description-box, .notes-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .notes-box {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+        }
+
+        /* Badge Styles */
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-type {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .priority-low {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .priority-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .priority-high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .priority-critical {
+            background: #721c24;
+            color: white;
+        }
+
+        .status-reported {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-under_review {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .status-in_progress {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-resolved {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-closed {
+            background: #d6d8db;
+            color: #383d41;
+        }
+
+        .admin-status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .admin-status-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .admin-status-declined {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Action Buttons */
+        .incident-actions {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .approve-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .approve-btn:hover {
+            background: #388E3C;
+        }
+
+        .decline-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .decline-btn:hover {
+            background: #d32f2f;
+        }
+
+        .view-btn {
+            background: #2196F3;
+            color: white;
+        }
+
+        .view-btn:hover {
+            background: #1976D2;
+        }
+
+        /* Admin Notes Form */
+        .admin-notes-form {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+        }
+
+        .confirm-decline {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .confirm-decline p {
+            margin: 0 0 10px 0;
+            color: #721c24;
+        }
+        
         .system-reports-container {
             padding: 30px;
             max-width: 1600px;
@@ -1315,6 +1582,7 @@ function exportReport($conn, $report_type, $date_from, $date_to, $route_id, $sta
                                 <th>Description</th>
                                 <th>Priority</th>
                                 <th>Status</th>
+                                <th>Admin Status</th>
                                 <th>Report Time</th>
                             </tr>
                         </thead>
@@ -1341,12 +1609,19 @@ function exportReport($conn, $report_type, $date_from, $date_to, $route_id, $sta
                                                 <?php echo $incident['Status']; ?>
                                             </span>
                                         </td>
+                                        <td>
+                                            <span class="metric-badge 
+                                                <?php echo $incident['admin_status'] == 'Approved' ? 'metric-good' : 
+                                                       ($incident['admin_status'] == 'Declined' ? 'metric-danger' : 'metric-warning'); ?>">
+                                                <?php echo $incident['admin_status'] ?: 'Pending'; ?>
+                                            </span>
+                                        </td>
                                         <td><?php echo date('Y-m-d H:i', strtotime($incident['Report_time'])); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="6" class="no-data">No recent incidents found</td>
+                                    <td colspan="7" class="no-data">No recent incidents found</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>
@@ -1454,6 +1729,7 @@ function exportReport($conn, $report_type, $date_from, $date_to, $route_id, $sta
                                         <th>Description</th>
                                         <th>Priority</th>
                                         <th>Status</th>
+                                        <th>Admin Status</th>
                                         <th>Report Time</th>
                                         <th>Actions</th>
                                     <?php else: ?>
@@ -1492,12 +1768,24 @@ function exportReport($conn, $report_type, $date_from, $date_to, $route_id, $sta
                                                     <?php echo $incident['Status']; ?>
                                                 </span>
                                             </td>
+                                            <td>
+                                                <span class="metric-badge 
+                                                    <?php echo $incident['admin_status'] == 'Approved' ? 'metric-good' : 
+                                                           ($incident['admin_status'] == 'Declined' ? 'metric-danger' : 'metric-warning'); ?>">
+                                                    <?php echo $incident['admin_status'] ?: 'Pending'; ?>
+                                                </span>
+                                            </td>
                                             <td><?php echo date('Y-m-d H:i', strtotime($incident['Report_time'])); ?></td>
                                             <td>
                                                 <button class="btn" style="padding: 5px 10px; font-size: 12px;" 
                                                         onclick="showIncidentDetails(<?php echo $incident['Incident_ID']; ?>)">
                                                     <i class="fas fa-eye"></i> View Details
                                                 </button>
+                                                <?php if (($incident['admin_status'] == 'Pending' || !$incident['admin_status']) && $incident['Status'] != 'Resolved' && $incident['Status'] != 'Closed'): ?>
+                                                    <span class="metric-badge metric-warning" style="margin-left: 5px;">
+                                                        <i class="fas fa-clock"></i> Needs Review
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -1560,16 +1848,16 @@ function exportReport($conn, $report_type, $date_from, $date_to, $route_id, $sta
     
     <!-- Incident Details Modal -->
     <div id="incidentModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-        <div class="modal-content" style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 10px; width: 80%; max-width: 800px; max-height: 80vh; overflow-y: auto;">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
-                <h2 style="margin: 0; color: #333;">Incident Details</h2>
-                <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Incident Details & Approval</h2>
+                <button onclick="closeModal()" class="close-modal">&times;</button>
             </div>
             <div class="modal-body" id="incidentDetailsContent">
-                <!-- Content will be loaded here via AJAX -->
+                <!-- Content loaded via AJAX -->
             </div>
-            <div class="modal-footer" style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #eee; text-align: right;">
-                <button onclick="closeModal()" class="btn btn-secondary" style="padding: 8px 20px;">Close</button>
+            <div class="modal-footer" id="incidentActionsFooter" style="display: none;">
+                <!-- Action buttons will be added here -->
             </div>
         </div>
     </div>
@@ -1588,6 +1876,10 @@ function exportReport($conn, $report_type, $date_from, $date_to, $route_id, $sta
             document.getElementById('incidentDetailsContent').innerHTML = 
                 '<div style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Loading incident details...</p></div>';
             
+            // Clear previous actions
+            document.getElementById('incidentActionsFooter').innerHTML = '';
+            document.getElementById('incidentActionsFooter').style.display = 'none';
+            
             // Show modal
             document.getElementById('incidentModal').style.display = 'block';
             
@@ -1596,6 +1888,11 @@ function exportReport($conn, $report_type, $date_from, $date_to, $route_id, $sta
                 .then(response => response.text())
                 .then(html => {
                     document.getElementById('incidentDetailsContent').innerHTML = html;
+                    
+                    // Add action buttons if incident is pending
+                    if (html.includes('admin-status-pending')) {
+                        showActionButtons(incidentId);
+                    }
                 })
                 .catch(error => {
                     document.getElementById('incidentDetailsContent').innerHTML = 
@@ -1603,7 +1900,189 @@ function exportReport($conn, $report_type, $date_from, $date_to, $route_id, $sta
                     console.error('Error:', error);
                 });
         }
-        
+
+        // Show action buttons for pending incidents
+        function showActionButtons(incidentId) {
+            const actionsFooter = document.getElementById('incidentActionsFooter');
+            
+            actionsFooter.innerHTML = `
+                <div class="incident-actions">
+                    <div class="admin-notes-form">
+                        <div class="form-group">
+                            <label class="form-label">Admin Notes (Optional):</label>
+                            <textarea id="adminNotes" class="form-textarea" placeholder="Add any notes for the transport coordinator..."></textarea>
+                        </div>
+                        <div class="btn-group">
+                            <button onclick="approveIncident(${incidentId})" class="action-btn approve-btn">
+                                <i class="fas fa-check-circle"></i> Approve & Send to Coordinator
+                            </button>
+                            <button onclick="showDeclineForm(${incidentId})" class="action-btn decline-btn">
+                                <i class="fas fa-times-circle"></i> Decline (Troll Report)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            actionsFooter.style.display = 'block';
+        }
+
+        // Show decline confirmation form
+        function showDeclineForm(incidentId) {
+            const actionsFooter = document.getElementById('incidentActionsFooter');
+            
+            actionsFooter.innerHTML = `
+                <div class="incident-actions">
+                    <div class="confirm-decline">
+                        <p><i class="fas fa-exclamation-triangle"></i> <strong>Warning:</strong> This action will permanently delete the incident report. This should only be done for obvious troll/spam reports.</p>
+                    </div>
+                    <div class="admin-notes-form">
+                        <div class="form-group">
+                            <label class="form-label">Reason for Decline:</label>
+                            <textarea id="declineReason" class="form-textarea" placeholder="Explain why this report is being declined..."></textarea>
+                        </div>
+                        <div class="btn-group">
+                            <button onclick="declineIncident(${incidentId})" class="action-btn decline-btn">
+                                <i class="fas fa-trash"></i> Confirm Decline & Delete
+                            </button>
+                            <button onclick="showIncidentDetails(${incidentId})" class="action-btn">
+                                <i class="fas fa-arrow-left"></i> Back to Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Approve incident and send to transport coordinator
+        function approveIncident(incidentId) {
+            const notes = document.getElementById('adminNotes').value;
+            
+            if (!confirm('Are you sure you want to approve this incident and send it to the transport coordinator?')) {
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('incidentActionsFooter').innerHTML = 
+                '<div style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Processing approval...</div>';
+            
+            // Send approval request
+            fetch('processIncidentAction.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `action=approve&id=${incidentId}&notes=${encodeURIComponent(notes)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    document.getElementById('incidentActionsFooter').innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i> Incident approved and sent to transport coordinator!
+                        </div>
+                        <button onclick="closeModal()" class="action-btn">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    `;
+                    
+                    // Refresh the page after 2 seconds
+                    setTimeout(() => {
+                        closeModal();
+                        location.reload();
+                    }, 2000);
+                } else {
+                    document.getElementById('incidentActionsFooter').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i> Error: ${data.message}
+                        </div>
+                        <button onclick="showIncidentDetails(${incidentId})" class="action-btn">
+                            <i class="fas fa-arrow-left"></i> Back to Details
+                        </button>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('incidentActionsFooter').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i> Network error. Please try again.
+                    </div>
+                    <button onclick="showIncidentDetails(${incidentId})" class="action-btn">
+                        <i class="fas fa-arrow-left"></i> Back to Details
+                    </button>
+                `;
+                console.error('Error:', error);
+            });
+        }
+
+        // Decline incident (delete it)
+        function declineIncident(incidentId) {
+            const reason = document.getElementById('declineReason').value;
+            
+            if (!reason.trim()) {
+                alert('Please provide a reason for declining this report.');
+                return;
+            }
+            
+            if (!confirm('⚠️ WARNING: This will permanently delete the incident report. Are you absolutely sure?')) {
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('incidentActionsFooter').innerHTML = 
+                '<div style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Deleting incident report...</div>';
+            
+            // Send decline request
+            fetch('processIncidentAction.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `action=decline&id=${incidentId}&reason=${encodeURIComponent(reason)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    document.getElementById('incidentActionsFooter').innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-trash"></i> Incident report deleted successfully.
+                        </div>
+                        <button onclick="closeModal()" class="action-btn">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    `;
+                    
+                    // Refresh the page after 2 seconds
+                    setTimeout(() => {
+                        closeModal();
+                        location.reload();
+                    }, 2000);
+                } else {
+                    document.getElementById('incidentActionsFooter').innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i> Error: ${data.message}
+                        </div>
+                        <button onclick="showIncidentDetails(${incidentId})" class="action-btn">
+                            <i class="fas fa-arrow-left"></i> Back to Details
+                        </button>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('incidentActionsFooter').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i> Network error. Please try again.
+                    </div>
+                    <button onclick="showIncidentDetails(${incidentId})" class="action-btn">
+                        <i class="fas fa-arrow-left"></i> Back to Details
+                    </button>
+                `;
+                console.error('Error:', error);
+            });
+        }
+
         function closeModal() {
             document.getElementById('incidentModal').style.display = 'none';
         }

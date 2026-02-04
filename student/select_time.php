@@ -1,32 +1,30 @@
 <?php
 session_start();
-require_once '../includes/config.php';
 
 /* ===============================
-   TIMEZONE (IMPORTANT)
+   PHP TIMEZONE (IMPORTANT)
 ================================ */
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
-/* Prevent cache issues */
-header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-header("Pragma: no-cache");
+require_once '../includes/config.php';
 
-/* -----------------------------------------
-   Access control
------------------------------------------ */
+/* ===============================
+   ACCESS CONTROL
+================================ */
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
     header('Location: ../student_login.php');
     exit();
 }
 
-/* -----------------------------------------
-   SAVE POST → REDIRECT (PRG PATTERN)
------------------------------------------ */
+/* ===============================
+   SAVE ROUTE + STOPS (PRG)
+================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pickup_stop_id'])) {
 
-    $_SESSION['route_id'] = (int)$_POST['route_id'];
-    $_SESSION['pickup_stop_id'] = (int)$_POST['pickup_stop_id'];
-    $_SESSION['dropoff_stop_id'] = (int)$_POST['dropoff_stop_id'];
+    $_SESSION['route_id']        = (int) $_POST['route_id'];
+    $_SESSION['pickup_stop_id']  = (int) $_POST['pickup_stop_id'];
+    $_SESSION['dropoff_stop_id'] = (int) $_POST['dropoff_stop_id'];
+    $_SESSION['travel_date']     = $_POST['travel_date'];
 
     /* Validate pickup < dropoff */
     $stmt = $conn->prepare("
@@ -36,37 +34,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pickup_stop_id'])) {
     ");
     $stmt->bind_param("ii", $_POST['pickup_stop_id'], $_POST['dropoff_stop_id']);
     $stmt->execute();
-    $result = $stmt->get_result();
 
     $orders = [];
-    while ($row = $result->fetch_assoc()) {
+    foreach ($stmt->get_result() as $row) {
         $orders[$row['Stop_ID']] = (int)$row['Stop_Order'];
     }
 
-    if (
-        !isset($orders[$_POST['pickup_stop_id']]) ||
-        !isset($orders[$_POST['dropoff_stop_id']]) ||
-        $orders[$_POST['pickup_stop_id']] >= $orders[$_POST['dropoff_stop_id']]
-    ) {
-        die("Invalid stop selection. Drop-off must be after pick-up.");
+    if ($orders[$_POST['pickup_stop_id']] >= $orders[$_POST['dropoff_stop_id']]) {
+        die("Invalid stop selection.");
     }
 
     header("Location: select_time.php");
     exit();
 }
 
-/* -----------------------------------------
-   TIME SELECTED → REDIRECT TO SEAT
------------------------------------------ */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['time_id'])) {
-    $_SESSION['time_id'] = (int)$_POST['time_id'];
+/* ===============================
+   TIME SELECTED → SEAT
+================================ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['schedule_id'])) {
+    $_SESSION['schedule_id'] = (int) $_POST['schedule_id'];
+    $_SESSION['travel_date'] = $_POST['travel_date'];
+
     header("Location: select_seat.php");
     exit();
 }
 
-/* -----------------------------------------
-   Required session data
------------------------------------------ */
+/* ===============================
+   REQUIRED SESSION DATA
+================================ */
 if (
     !isset($_SESSION['route_id']) ||
     !isset($_SESSION['pickup_stop_id']) ||
@@ -76,64 +71,63 @@ if (
     exit();
 }
 
-$route_id = (int)$_SESSION['route_id'];
-$pickup_stop_id = (int)$_SESSION['pickup_stop_id'];
-$dropoff_stop_id = (int)$_SESSION['dropoff_stop_id'];
+$route_id = (int) $_SESSION['route_id'];
+$pickup_stop_id  = (int) $_SESSION['pickup_stop_id'];
+$dropoff_stop_id = (int) $_SESSION['dropoff_stop_id'];
 
-/* -----------------------------------------
-   Get route name
------------------------------------------ */
-$stmt = $conn->prepare("SELECT Route_Name FROM route WHERE Route_ID = ?");
-$stmt->bind_param("i", $route_id);
-$stmt->execute();
-$route = $stmt->get_result()->fetch_assoc();
+/* ===============================
+   SELECT DATE (DEFAULT TODAY)
+================================ */
+if (isset($_GET['date'])) {
+    $travel_date = $_GET['date'];
+    $_SESSION['travel_date'] = $travel_date;
+} elseif (isset($_SESSION['travel_date'])) {
+    $travel_date = $_SESSION['travel_date'];
+} else {
+    $travel_date = date('Y-m-d');
+    $_SESSION['travel_date'] = $travel_date;
+}
 
-/* -----------------------------------------
-   Get pickup stop offset
------------------------------------------ */
-$stmt = $conn->prepare("
+/* ===============================
+   ROUTE + STOP INFO
+================================ */
+$route = $conn->query("
+    SELECT Route_Name 
+    FROM route 
+    WHERE Route_ID = $route_id
+")->fetch_assoc();
+
+$pickup = $conn->query("
     SELECT Stop_Name, Estimated_Time_From_Start
     FROM route_stops
-    WHERE Stop_ID = ?
-");
-$stmt->bind_param("i", $pickup_stop_id);
-$stmt->execute();
-$pickupStop = $stmt->get_result()->fetch_assoc();
+    WHERE Stop_ID = $pickup_stop_id
+")->fetch_assoc();
 
-$pickupOffset = (int)$pickupStop['Estimated_Time_From_Start'];
-$pickupStopName = $pickupStop['Stop_Name'];
-
-/* -----------------------------------------
-   Get drop-off stop offset (NEW)
------------------------------------------ */
-$stmt = $conn->prepare("
+$dropoff = $conn->query("
     SELECT Stop_Name, Estimated_Time_From_Start
     FROM route_stops
-    WHERE Stop_ID = ?
-");
-$stmt->bind_param("i", $dropoff_stop_id);
-$stmt->execute();
-$dropoffStop = $stmt->get_result()->fetch_assoc();
+    WHERE Stop_ID = $dropoff_stop_id
+")->fetch_assoc();
 
-$dropoffOffset = (int)$dropoffStop['Estimated_Time_From_Start'];
-$dropoffStopName = $dropoffStop['Stop_Name'];
-
-/* -----------------------------------------
-   Get route start times
------------------------------------------ */
+/* ===============================
+   GET SCHEDULED SHUTTLES ONLY
+================================ */
 $stmt = $conn->prepare("
-    SELECT Time_ID, Departure_Time
-    FROM route_time
+    SELECT 
+        Schedule_ID,
+        Departure_time
+    FROM shuttle_schedule
     WHERE Route_ID = ?
-    ORDER BY Departure_Time
+      AND DATE(Departure_time) = ?
+      AND Status = 'Scheduled'
+    ORDER BY Departure_time
 ");
-$stmt->bind_param("i", $route_id);
+$stmt->bind_param("is", $route_id, $travel_date);
 $stmt->execute();
-$times = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$schedules = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-/* Current date & time */
+$now   = new DateTime();
 $today = date('Y-m-d');
-$now = new DateTime();
 ?>
 <!DOCTYPE html>
 <html>
@@ -161,7 +155,6 @@ body {
 .time-info {
     font-size:14px;
     color:#555;
-    margin-top:5px;
 }
 button {
     width:100%;
@@ -177,61 +170,71 @@ button {
     color:#777;
     margin-top:30px;
 }
+.date-bar {
+    margin-bottom:20px;
+}
 </style>
 </head>
 <body>
 
-<?php include __DIR__ . '/student_navbar.php'; ?>
+<?php include 'student_navbar.php'; ?>
 
 <div class="container">
+
 <h2>Select Departure Time</h2>
+
 <p>
     <strong>Route:</strong> <?= htmlspecialchars($route['Route_Name']); ?><br>
-    <strong>Pickup:</strong> <?= htmlspecialchars($pickupStopName); ?><br>
-    <strong>Drop-off:</strong> <?= htmlspecialchars($dropoffStopName); ?>
+    <strong>Pickup:</strong> <?= htmlspecialchars($pickup['Stop_Name']); ?><br>
+    <strong>Drop-off:</strong> <?= htmlspecialchars($dropoff['Stop_Name']); ?>
 </p>
 
+<!-- DATE SELECT -->
+<form method="GET" class="date-bar">
+    <input type="date" name="date"
+           value="<?= htmlspecialchars($travel_date); ?>"
+           min="<?= date('Y-m-d'); ?>"
+           onchange="this.form.submit()">
+</form>
+
 <?php
-$shown = false;
+$hasVisible = false;
 
-foreach ($times as $t):
+foreach ($schedules as $s):
 
-    $routeStart = new DateTime($today . ' ' . $t['Departure_Time']);
+    $routeStart = new DateTime($s['Departure_time']);
 
-    /* Pickup time */
-    $pickupDateTime = clone $routeStart;
-    $pickupDateTime->modify("+{$pickupOffset} minutes");
-
-    /* Arrival time */
-    $arrivalDateTime = clone $routeStart;
-    $arrivalDateTime->modify("+{$dropoffOffset} minutes");
-
-    /* Skip past pickup times */
-    if ($pickupDateTime <= $now) {
+    // ⛔ Hide past times ONLY if today
+    if ($travel_date === $today && $routeStart <= $now) {
         continue;
     }
 
-    $shown = true;
+    $hasVisible = true;
+
+    $pickupTime  = (clone $routeStart)->modify("+{$pickup['Estimated_Time_From_Start']} minutes");
+    $arrivalTime = (clone $routeStart)->modify("+{$dropoff['Estimated_Time_From_Start']} minutes");
 ?>
+
 <div class="time-card">
-    <p>🕒 Pickup: <strong><?= $pickupDateTime->format('H:i'); ?></strong></p>
+    <p>🕒 Pickup: <strong><?= $pickupTime->format('H:i'); ?></strong></p>
 
     <div class="time-info">
-        🏁 Estimated Arrival: <strong><?= $arrivalDateTime->format('H:i'); ?></strong><br>
-        🚍 Shuttle starts at <?= date('H:i', strtotime($t['Departure_Time'])); ?>
+        🏁 Arrival: <?= $arrivalTime->format('H:i'); ?><br>
+        🚍 Starts: <?= $routeStart->format('H:i'); ?>
     </div>
 
     <form method="POST">
-        <input type="hidden" name="time_id" value="<?= $t['Time_ID']; ?>">
+        <input type="hidden" name="schedule_id" value="<?= $s['Schedule_ID']; ?>">
+        <input type="hidden" name="travel_date" value="<?= $travel_date; ?>">
         <button>Select Seat</button>
     </form>
 </div>
+
 <?php endforeach; ?>
 
-<?php if (!$shown): ?>
+<?php if (!$hasVisible): ?>
     <div class="no-data">
-        No remaining shuttle for today.<br>
-        Please check again tomorrow.
+        No scheduled shuttles available for this date.
     </div>
 <?php endif; ?>
 

@@ -5,30 +5,12 @@ require_once '../includes/config.php';
 /* -----------------------------------------
    Access control
 ----------------------------------------- */
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Student') {
-    header('Location: ../student_login.php');
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Driver') {
+    header('Location: ../driver_login.php');
     exit();
 }
 
 $user_id = (int)$_SESSION['user_id'];
-
-/* -----------------------------------------
-   Get Student_ID
------------------------------------------ */
-$stmt = $conn->prepare("
-    SELECT Student_ID
-    FROM student_profile
-    WHERE User_ID = ?
-");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$student = $stmt->get_result()->fetch_assoc();
-
-if (!$student) {
-    die("Student profile not found.");
-}
-
-$student_id = (int)$student['Student_ID'];
 
 /* -----------------------------------------
    Mark notifications as READ
@@ -37,33 +19,13 @@ $stmt = $conn->prepare("
     UPDATE notifications
     SET Status = 'Read', Read_At = NOW()
     WHERE User_ID = ?
-      AND Status = 'Unread'
+    AND Status = 'Unread'
 ");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 
 /* -----------------------------------------
-   BOOKING notifications (FIXED)
------------------------------------------ */
-$stmt = $conn->prepare("
-    SELECT 
-        sr.Status AS booking_status,
-        r.Route_Name,
-        ss.Departure_time,
-        sr.Booking_Time
-    FROM seat_reservation sr
-    JOIN shuttle_schedule ss ON sr.Schedule_ID = ss.Schedule_ID
-    JOIN route r ON ss.Route_ID = r.Route_ID
-    WHERE sr.Student_ID = ?
-    ORDER BY sr.Booking_Time DESC
-    LIMIT 5
-");
-$stmt->bind_param("i", $student_id);
-$stmt->execute();
-$booking_notifications = $stmt->get_result();
-
-/* -----------------------------------------
-   SYSTEM notifications (Route updates)
+   ROUTE / SYSTEM notifications (Driver)
 ----------------------------------------- */
 $stmt = $conn->prepare("
     SELECT
@@ -74,13 +36,13 @@ $stmt = $conn->prepare("
         Created_At
     FROM notifications
     WHERE User_ID = ?
-      AND Status != 'Deleted'
+    AND Status != 'Deleted'
     ORDER BY Created_At DESC
     LIMIT 10
 ");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
-$system_notifications = $stmt->get_result();
+$route_notifications = $stmt->get_result();
 
 /* -----------------------------------------
    INCIDENT notifications (ADMIN APPROVED)
@@ -102,7 +64,7 @@ $incident_notifications = $stmt->get_result();
 <!DOCTYPE html>
 <html>
 <head>
-<title>Notifications</title>
+<title>Driver Notifications</title>
 
 <style>
 body {
@@ -118,7 +80,6 @@ body {
 .title {
     font-size:26px;
     margin-bottom:20px;
-    color:#333;
 }
 .card {
     background:white;
@@ -158,10 +119,10 @@ body {
     font-weight:600;
     color:#555;
 }
-.success { background:#4CAF50; color:white; }
-.danger { background:#F44336; color:white; }
 .info { background:#2196F3; color:white; }
 .warning { background:#FF9800; color:white; }
+.danger { background:#F44336; color:white; }
+.success { background:#4CAF50; color:white; }
 .empty {
     color:#777;
     margin-bottom:15px;
@@ -170,51 +131,25 @@ body {
 </head>
 <body>
 
-<?php include 'student_navbar.php'; ?>
+<?php include 'driver_navbar.php'; ?>
 
 <div class="container">
-<div class="title">Your Notifications</div>
+<div class="title">Driver Notifications</div>
 
-<!-- ================= MY BOOKINGS ================= -->
-<div class="section-divider"><span class="section-title">My Bookings</span></div>
+<!-- ================= ROUTE / ASSIGNMENT UPDATES ================= -->
+<div class="section-divider">
+    <span class="section-title">Route Updates & Assignments</span>
+</div>
 
-<?php if ($booking_notifications->num_rows > 0): ?>
-    <?php while ($row = $booking_notifications->fetch_assoc()): ?>
-        <div class="card">
-            <?php if ($row['booking_status'] === 'Reserved'): ?>
-                <span class="badge success">Booking Confirmed</span>
-                <div class="notif-title">✅ Shuttle Booking Confirmed</div>
-            <?php else: ?>
-                <span class="badge danger">Booking Cancelled</span>
-                <div class="notif-title">❌ Booking Cancelled</div>
-            <?php endif; ?>
-
-            <p>
-                Route <strong><?= htmlspecialchars($row['Route_Name']); ?></strong><br>
-                Departure: <?= date('M d, H:i', strtotime($row['Departure_time'])); ?>
-            </p>
-
-            <div class="notif-time">
-                <?= date('M d, H:i', strtotime($row['Booking_Time'])); ?>
-            </div>
-        </div>
-    <?php endwhile; ?>
-<?php else: ?>
-    <p class="empty">No booking notifications.</p>
-<?php endif; ?>
-
-<!-- ================= ROUTE UPDATES ================= -->
-<div class="section-divider"><span class="section-title">Route Updates</span></div>
-
-<?php if ($system_notifications->num_rows > 0): ?>
-    <?php while ($n = $system_notifications->fetch_assoc()): ?>
+<?php if ($route_notifications->num_rows > 0): ?>
+    <?php while ($n = $route_notifications->fetch_assoc()): ?>
 
         <?php
             $badge = 'info';
             if ($n['Priority'] === 'High' || $n['Priority'] === 'Urgent') {
                 $badge = 'danger';
-            } elseif ($n['Type'] === 'Route_Update') {
-                $badge = 'warning';
+            } elseif ($n['Type'] === 'Route_Assigned' || $n['Type'] === 'Route_Update') {
+                $badge = 'info'; // blue for route related
             }
         ?>
 
@@ -223,7 +158,10 @@ body {
                 <?= htmlspecialchars($n['Type']); ?>
             </span>
 
-            <div class="notif-title"><?= htmlspecialchars($n['Title']); ?></div>
+            <div class="notif-title">
+                <?= htmlspecialchars($n['Title']); ?>
+            </div>
+
             <p><?= nl2br(htmlspecialchars($n['Message'])); ?></p>
 
             <div class="notif-time">
@@ -233,11 +171,13 @@ body {
 
     <?php endwhile; ?>
 <?php else: ?>
-    <p class="empty">No route updates.</p>
+    <p class="empty">No route updates or assignments.</p>
 <?php endif; ?>
 
 <!-- ================= INCIDENT ALERTS ================= -->
-<div class="section-divider"><span class="section-title">Incident Alerts</span></div>
+<div class="section-divider">
+    <span class="section-title">Incident Alerts</span>
+</div>
 
 <?php if ($incident_notifications->num_rows > 0): ?>
     <?php while ($i = $incident_notifications->fetch_assoc()): ?>
@@ -248,9 +188,14 @@ body {
         ?>
 
         <div class="card">
-            <span class="badge <?= $badge; ?>">🚨 Incident Alert</span>
+            <span class="badge <?= $badge; ?>">
+                🚨 Incident Alert
+            </span>
 
-            <div class="notif-title"><?= htmlspecialchars($i['Incident_Type']); ?></div>
+            <div class="notif-title">
+                <?= htmlspecialchars($i['Incident_Type']); ?>
+            </div>
+
             <p><?= nl2br(htmlspecialchars($i['Description'])); ?></p>
 
             <div class="notif-time">
@@ -262,6 +207,18 @@ body {
     <?php endwhile; ?>
 <?php else: ?>
     <p class="empty">No incident alerts.</p>
+<?php endif; ?>
+
+<!-- ================= EMPTY STATE ================= -->
+<?php if (
+    $route_notifications->num_rows == 0 &&
+    $incident_notifications->num_rows == 0
+): ?>
+    <div class="card">
+        <span class="badge info">Info</span>
+        <div class="notif-title">No Notifications</div>
+        <p>You currently have no notifications.</p>
+    </div>
 <?php endif; ?>
 
 </div>
