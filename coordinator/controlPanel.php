@@ -17,15 +17,16 @@ $stmt->execute();
 $result = $stmt->get_result();
 $coordinator = $result->fetch_assoc();
 
-// Get unread notifications count
+// Get unread notifications count for current coordinator
 $unread_count_sql = "SELECT COUNT(*) as count FROM notifications WHERE User_ID = ? AND Status = 'Unread'";
 $stmt = $conn->prepare($unread_count_sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $unread_result = $stmt->get_result();
-$unread_count = $unread_result->fetch_assoc()['count'];
+$unread_count_data = $unread_result->fetch_assoc();
+$unread_count = $unread_count_data['count'];
 
-// Get recent notifications (last 5)
+// Get recent notifications for current coordinator (last 5)
 $recent_notifications_sql = "
     SELECT n.*, r.Route_Name, ss.Departure_time
     FROM notifications n
@@ -1046,17 +1047,14 @@ $vehicle_status = $conn->query("
                 <div class="section-card">
                     <h3 class="section-title">Quick Actions</h3>
                     <div class="quick-actions">
-                        <button class="action-btn" onclick="window.location.href='../coordinator/createSchedule.php'">
-                            <i class="fas fa-calendar-plus"></i> Create Schedule
-                        </button>
                         <button class="action-btn secondary" onclick="window.location.href='manageRoutePage.php'">
                             <i class="fas fa-route"></i> Manage Routes
                         </button>
-                        <button class="action-btn secondary" onclick="window.location.href='/assignDriver.php'">
+                        <button class="action-btn secondary" onclick="window.location.href='assignDriver.php'">
                             <i class="fas fa-user-tie"></i> Assign Driver
                         </button>
-                        <button class="action-btn secondary" onclick="window.location.href='/reports.php'">
-                            <i class="fas fa-chart-bar"></i> Generate Report
+                        <button class="action-btn secondary" onclick="window.location.href='reports.php'">
+                            <i class="fas fa-chart-bar"></i> Incident Report
                         </button>
                     </div>
                 </div>
@@ -1094,20 +1092,6 @@ $vehicle_status = $conn->query("
                         </div>
                     </div>
                 </div>
-                
-                <!-- Quick Links -->
-                <div class="quick-links">
-                    <h3>Quick Access Links</h3>
-                    <div class="links-list">
-                        <a href="../coordinator/createSchedule.php" class="link-item">Create Schedule</a>
-                        <a href="manageRoutePage.php" class="link-item">Manage Routes</a>
-                        <a href="/assignDriver.php" class="link-item">Assign Driver</a>
-                        <a href="/reports.php" class="link-item">Generate Report</a>
-                        <a href="incident_management.php" class="link-item">Incident Reports</a>
-                        <a href="vehicle_management.php" class="link-item">Vehicle Management</a>
-                        <a href="schedule_calendar.php" class="link-item">Schedule Calendar</a>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -1136,6 +1120,7 @@ $vehicle_status = $conn->query("
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = 'mark_notification_read.php';
+            form.style.display = 'none';
             
             const input = document.createElement('input');
             input.type = 'hidden';
@@ -1154,6 +1139,7 @@ $vehicle_status = $conn->query("
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = 'mark_all_notifications_read.php';
+                form.style.display = 'none';
                 
                 const input = document.createElement('input');
                 input.type = 'hidden';
