@@ -57,7 +57,7 @@ $stats_sql = "
     $where_clause
 ";
 
-// 获取按类型统计（需要单独的查询因为使用子查询）
+// 获取按类型统计
 $type_stats_where = "";
 $type_stats_params = [];
 $type_stats_param_types = "";
@@ -365,15 +365,6 @@ $incident_types = $conn->query("SELECT DISTINCT Incident_Type FROM incident_repo
             background: #F3E5F5;
         }
         
-        .btn-export {
-            background: #4CAF50;
-            color: white;
-        }
-        
-        .btn-export:hover {
-            background: #388E3C;
-        }
-        
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -528,19 +519,6 @@ $incident_types = $conn->query("SELECT DISTINCT Incident_Type FROM incident_repo
             font-style: italic;
         }
         
-        .export-options {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-        
-        .export-buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: flex-end;
-            flex-wrap: wrap;
-        }
-        
         .loading {
             display: none;
             text-align: center;
@@ -592,10 +570,6 @@ $incident_types = $conn->query("SELECT DISTINCT Incident_Type FROM incident_repo
             
             .action-cell {
                 flex-direction: column;
-            }
-            
-            .export-buttons {
-                justify-content: center;
             }
             
             .btn {
@@ -687,7 +661,6 @@ $incident_types = $conn->query("SELECT DISTINCT Incident_Type FROM incident_repo
                 <div class="filter-actions">
                     <button type="submit" class="btn btn-primary">Apply Filters</button>
                     <button type="button" class="btn btn-secondary" onclick="resetFilters()">Reset Filters</button>
-                    <button type="button" class="btn btn-export" onclick="showExportOptions()">Export Report</button>
                 </div>
             </form>
         </div>
@@ -849,25 +822,6 @@ $incident_types = $conn->query("SELECT DISTINCT Incident_Type FROM incident_repo
                 </div>
             <?php endif; ?>
         </div>
-        
-        <!-- Export Options -->
-        <div class="export-options">
-            <h3 style="margin-bottom: 15px;">Export Options</h3>
-            <div class="export-buttons">
-                <button class="btn btn-export" onclick="exportReport('pdf')">
-                    📋 Export as PDF
-                </button>
-                <button class="btn btn-export" onclick="exportReport('csv')">
-                    📊 Export as CSV
-                </button>
-                <button class="btn btn-secondary" onclick="exportReport('excel')">
-                    📈 Export as Excel
-                </button>
-                <button class="btn btn-secondary" onclick="printReport()">
-                    🖨️ Print Report
-                </button>
-            </div>
-        </div>
     </div>
     
     <!-- Loading Indicator -->
@@ -950,76 +904,15 @@ $incident_types = $conn->query("SELECT DISTINCT Incident_Type FROM incident_repo
             window.open(`update_incident.php?id=${incidentId}`, '_blank');
         }
         
-        function showExportOptions() {
-            alert('Select an export format from the options below.');
-        }
-        
-        function exportReport(format) {
-            const loading = document.getElementById('loading');
-            const progressBar = document.getElementById('progressBar');
-            
-            loading.style.display = 'block';
-            progressBar.style.width = '30%';
-            
-            // Simulate report generation progress
-            setTimeout(() => {
-                progressBar.style.width = '60%';
-            }, 500);
-            
-            setTimeout(() => {
-                progressBar.style.width = '90%';
-            }, 1000);
-            
-            setTimeout(() => {
-                loading.style.display = 'none';
-                progressBar.style.width = '0%';
-                
-                // Get current filter parameters
-                const params = new URLSearchParams(window.location.search);
-                const fileName = `incident_report_${new Date().toISOString().split('T')[0]}.${format}`;
-                
-                switch(format) {
-                    case 'pdf':
-                        alert(`PDF report "${fileName}" would be generated with current filters.\n\nTo implement PDF export, you need to:\n1. Install a PDF library like TCPDF or Dompdf\n2. Create export_pdf.php file\n3. Use the same query logic from this page`);
-                        break;
-                    case 'csv':
-                        // Trigger CSV download
-                        window.location.href = `export_csv.php?${params.toString()}`;
-                        break;
-                    case 'excel':
-                        alert(`Excel report "${fileName}" would be generated.\n\nTo implement Excel export, you can use PHPExcel or PhpSpreadsheet library.`);
-                        break;
-                }
-            }, 1500);
-        }
-        
-        function printReport() {
-            window.print();
-        }
-        
         // Auto-refresh data every 5 minutes
         setInterval(() => {
             if(!document.hidden) {
                 console.log('Auto-refreshing incident data...');
-                // In real app, use AJAX to refresh data
-                // location.reload();
             }
         }, 300000);
         
         // Add keyboard shortcuts
         document.addEventListener('keydown', function(e) {
-            // Ctrl + P for print
-            if((e.ctrlKey || e.metaKey) && e.key === 'p') {
-                e.preventDefault();
-                printReport();
-            }
-            
-            // Ctrl + E for export menu
-            if((e.ctrlKey || e.metaKey) && e.key === 'e') {
-                e.preventDefault();
-                showExportOptions();
-            }
-            
             // Escape to close modals (if any)
             if(e.key === 'Escape') {
                 const loading = document.getElementById('loading');
